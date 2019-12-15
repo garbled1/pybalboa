@@ -8,4 +8,7 @@ setup(name='pybalboa',
       author_email='root@garbled.net',
       license='Apache 2.0',
       packages=['pybalboa'],
+      install_requires=[
+          'numpy',
+      ],
       zip_safe=False)
