@@ -1,5 +1,6 @@
 import balboa
 import binascii
+import asyncio
 
 def test_crc():
     config_resp = bytes.fromhex('1E0ABF9402148000152737EFED0000000000000000001527FFFF37EFED42')
@@ -14,7 +15,7 @@ def test_crc():
     conf_req = bytes.fromhex('7E050ABF04777E')
     conf_req_crc = 0x77
 
-    spa = balboa.BalboaSpaWifi('none', 52)
+    spa = balboa.BalboaSpaWifi('gnet-37efed')
 
     result = spa.balboa_calc_cs(conf_req[1:], 4)
     print('Expected CRC={0} got {1}'.format(hex(conf_req_crc), hex(result)))
@@ -26,5 +27,13 @@ def test_crc():
     if result != status_update_crc:
         return 1
 
-test_crc()
+async def connect_and_listen():
+    spa = balboa.BalboaSpaWifi('gnet-37efed')
+    await spa.connect()
+    await spa.send_config_req()
+    msg = await spa.read_one_message()
+
+if __name__ == "__main__":
+    test_crc()
+    asyncio.run(connect_and_listen())
 
