@@ -59,6 +59,15 @@ mtypes = [
     [0x0A, 0XBF, 0x25],  # BMTR_PANEL_NOCLUE2
 ]
 
+text_heatmode = ["Ready", "Ready in Rest", "Rest"]
+text_tscale = ["Farenheit", "Celcius"]
+text_timescale = ["12h", "24h"]
+text_pump = ["Off", "Low", "High"]
+text_temprange = ["Low", "High"]
+text_blower = ["Off", "Low", "Medium", "High"]
+text_switch = ["Off", "On"]
+text_filter = ["Off", "Cycle 1", "Cycle 2", "Cycle 1 and 2"]
+
 """
 The CRC is annoying.  Doing CRC's in python is even more annoying than it
 should be.  I hate it.
@@ -145,6 +154,8 @@ class BalboaSpaWifi:
         self.time_hour = 0
         self.time_minute = 0
         self.filtermode = 0
+        self.prior_status = None
+        self.new_data_cb = None
         self.log = logging.getLogger(__name__)
 
     def crc_update(self, crc, data, length):
@@ -156,7 +167,8 @@ class BalboaSpaWifi:
         for cur in range(length):
             for i in range(8):
                 bit = bool(numpy.uint8(crc & 0x80))
-                crc = numpy.uint8(numpy.uint8(crc << 1) | numpy.uint8(numpy.uint8(data[cur] >> (7 - i)) & 0x01))
+                crc = numpy.uint8(numpy.uint8(crc << 1) |
+                                  numpy.uint8(numpy.uint8(data[cur] >> (7 - i)) & 0x01))
                 if (bit):
                     crc = numpy.uint8(crc ^ 0x07)
             crc &= 0xff
@@ -197,6 +209,16 @@ class BalboaSpaWifi:
         self.connected = False
         self.writer.close()
         await self.writer.wait_closed()
+
+    async def int_new_data_cb(self):
+        """ Internal new data callback.
+        Binds to self.new_data_cb()
+        """
+
+        if self.new_data_cb is None:
+            return
+        else:
+            await self.new_data_cb()
 
     async def send_config_req(self):
         """ Ask the spa for it's config. """
@@ -472,7 +494,7 @@ class BalboaSpaWifi:
 
         # calculate how many times to push the button
         for iter in range(0, 3):
-            if newstate == ((self.blower_status[blower] + iter) % 4):
+            if newstate == ((self.blower_status + iter) % 4):
                 break
 
         # now push the button until we hit desired state
@@ -583,6 +605,22 @@ class BalboaSpaWifi:
             await self.send_panel_req(0, 1)
             return
 
+        # Check if the spa had anything new to say.
+        # This will cause our internal states to update once per minute due
+        # to the hour/minute counter.  This is ok.
+        have_new_data = False
+        if self.prior_status is not None:
+            for i in range(0, 31):
+                if data[i] != self.prior_status[i]:
+                    have_new_data = True
+                    break
+        else:
+            have_new_data = True
+            self.prior_status = bytearray(31)
+
+        if not have_new_data:
+            return
+
         if numpy.uint8(data[14] & 0x01):
             self.tempscale = self.TSCALE_C
         else:
@@ -598,7 +636,7 @@ class BalboaSpaWifi:
         temp = float(data[7])
         settemp = float(data[25])
         if self.tempscale == self.TSCALE_C:
-            self.curtemp = temp /2.0
+            self.curtemp = temp / 2.0
             self.settemp = settemp / 2.0
         else:
             self.curtemp = temp
@@ -649,6 +687,10 @@ class BalboaSpaWifi:
                 self.aux_status[i] = numpy.uint8(data[20] & 0x10)
 
         self.lastupd = time.time()
+        # populate prior_status
+        for i in range(0, 31):
+            self.prior_status[i] = data[i]
+        await self.int_new_data_cb()
 
     async def read_one_message(self):
         """ Listen to the spa babble once."""
@@ -722,6 +764,128 @@ class BalboaSpaWifi:
             print("Unhandled mtype {0}".format(mtype))
 
     # Simple accessors
+    def get_tempscale(self, text=False):
+        """ What is our tempscale? """
+        if text:
+            return text_tscale[self.tempscale]
+        return self.tempscale
+
+    def get_timescale(self, text=False):
+        """ What is our timescale? """
+        if text:
+            return text_timescale[self.timescale]
+        return self.timescale
+
     def get_settemp(self):
         """ Ask for the set temp. """
         return self.settemp
+
+    def get_curtemp(self):
+        """ Ask for the current temp. """
+        return self.curtemp
+
+    def get_heatmode(self, text=False):
+        """ Ask for the current heatmode. """
+        if text:
+            return text_heatmode[self.heatmode]
+        return self.heatmode
+
+    def get_heatstate(self, text=False):
+        """ Ask for the current heat state. """
+        if text:
+            return text_switch[self.heatstate]
+        return self.heatstate
+
+    def get_temprange(self, text=False):
+        """ Ask for the current temp range. """
+        if text:
+            return text_temprange[self.temprange]
+        return self.temprange
+
+    def have_pump(self, pump):
+        """ Do we have a pump numbered pump? """
+        if pump > MAX_PUMPS:
+            return False
+        return bool(self.pump_array[pump])
+
+    def get_pump(self, pump, text=False):
+        """ Ask for the pump status for pump #pump. """
+        if not self.have_pump(pump):
+            return None
+        if text:
+            return text_pump[self.pump_status[pump]]
+        return self.pump_status[pump]
+
+    def have_light(self, light):
+        """ Do we have a light numbered light? """
+        if light > 1:
+            return False
+        return bool(self.light_array[light])
+
+    def get_light(self, light, text=False):
+        """ Ask for the light status for light #light. """
+        if not self.have_light(light):
+            return None
+        if text:
+            return text_switch[self.light_status[light]]
+        return self.light_status[light]
+
+    def have_aux(self, aux):
+        """ Do we have a aux numbered aux? """
+        if aux > 1:
+            return False
+        return bool(self.aux_array[aux])
+
+    def get_aux(self, aux, text=False):
+        """ Ask for the aux status for aux #aux. """
+        if not self.have_aux(aux):
+            return None
+        if text:
+            return text_switch[self.aux_status[aux]]
+        return self.aux_status[aux]
+
+    def have_blower(self):
+        """ Do we have a blower? """
+        return bool(self.blower)
+
+    def get_blower(self, text=False):
+        """ Ask for blower status. """
+        if not self.have_blower():
+            return None
+        if text:
+            return text_blower[self.blower_status]
+        return self.blower_status
+
+    def have_mister(self):
+        """ Do we have a mister? """
+        return bool(self.mister)
+
+    def get_mister(self, text=False):
+        """ Ask for mister status. """
+        if not self.have_mister():
+            return None
+        if text:
+            return text_switch[self.mister_status]
+        return self.mister_status
+
+    def have_circ_pump(self):
+        """ Do we have a circ_pump? """
+        return bool(self.circ_pump)
+
+    def get_circ_pump(self, text=False):
+        """ Ask for circ_pump status. """
+        if not self.have_circ_pump():
+            return None
+        if text:
+            return text_switch[self.circ_pump_status]
+        return self.circ_pump_status
+
+    def get_macaddr(self):
+        """ Return the macaddr of the spa wifi """
+        return self.macaddr
+
+    def get_filtermode(self, text=False):
+        """ Return the filtermode. """
+        if text:
+            return text_filter[self.filtermode]
+        return self.filtermode

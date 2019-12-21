@@ -103,23 +103,23 @@ async def mini_engine(spahost):
             lastupd = spa.lastupd
             print("New data as of {0}".format(spa.lastupd))
             print("Current Temp: {0}".format(spa.curtemp))
-            print("Tempscale: {0}".format("C" if spa.tempscale == spa.TSCALE_C else "F"))
-            print("Set Temp: {0}".format(spa.settemp))
-            print("Heat Mode: {0}".format(spa.heatmode))
-            print("Heat State: {0}".format(spa.heatstate))
-            print("Temp Range: {0}".format(spa.temprange))
+            print("Tempscale: {0}".format(spa.get_tempscale(text=True)))
+            print("Set Temp: {0}".format(spa.get_settemp()))
+            print("Heat Mode: {0}".format(spa.get_heatmode(True)))
+            print("Heat State: {0}".format(spa.get_heatstate(True)))
+            print("Temp Range: {0}".format(spa.get_temprange(True)))
             print("Pump Status: {0}".format(str(spa.pump_status)))
-            print("Circulation Pump: {0}".format(spa.circ_pump_status))
+            print("Circulation Pump: {0}".format(spa.get_circ_pump(True)))
             print("Light Status: {0}".format(str(spa.light_status)))
-            print("Mister Status: {0}".format(spa.mister_status))
+            print("Mister Status: {0}".format(spa.get_mister(True)))
             print("Aux Status: {0}".format(str(spa.aux_status)))
-            print("Blower Status: {0}".format(spa.blower_status))
+            print("Blower Status: {0}".format(spa.get_blower(True)))
             print("Spa Time: {0}:{1} {2}".format(
                 spa.time_hour,
                 spa.time_minute,
-                "12h" if (spa.timescale == spa.TIMESCALE_12H) else "24h"
+                spa.get_timescale(True)
             ))
-            print("Filter Mode: {0}".format(spa.filter_mode))
+            print("Filter Mode: {0}".format(spa.get_filtermode(True)))
             print()
 
     print("Trying to set temperatures")
