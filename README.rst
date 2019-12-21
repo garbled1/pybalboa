@@ -3,7 +3,12 @@ pybalboa
 
 Python Module to interface with a balboa spa
 
-To test
+Requires Python 3 with asyncio.
+
+To Install::
+  pip install pybalboa
+
+To test::
   python3 pybalboa <ip-of-spa-wifi>
 
 To Use::
