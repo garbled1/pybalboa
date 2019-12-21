@@ -27,16 +27,6 @@ MAX_PUMPS = 6
 
 NROF_BMT = 14
 
-TSCALE_C = 1
-TSCALE_F = 2
-
-TEMPRANGE_HIGH = 1
-TEMPRANGE_LOW = 2
-
-HEATMODE_READY = 1
-HEATMODE_REST = 2
-HEATMODE_READY_REST = 3
-
 (BMTR_STATUS_UPDATE,
  BMTR_FILTER_CONFIG,
  BMTS_CONFIG_REQ,
@@ -89,6 +79,39 @@ https://github.com/garbled1/gnhast/blob/master/balboacoll/collector.c
 
 class BalboaSpaWifi:
     def __init__(self, hostname, port=BALBOA_DEFAULT_PORT):
+        # API Constants
+        self.TSCALE_C = 1
+        self.TSCALE_F = 0
+        self.HEATMODE_READY = 0
+        self.HEATMODE_RNR = 1  # Ready in Rest
+        self.HEATMODE_REST = 2
+        self.TIMESCALE_12H = 0
+        self.TIMESCALE_24H = 1
+        self.PUMP_OFF = 0
+        self.PUMP_LOW = 1
+        self.PUMP_HIGH = 2
+        self.TEMPRANGE_LOW = 0
+        self.TEMPRANGE_HIGH = 1
+        self.tmin = [
+            [50.0, 10.0],
+            [80.0, 26.0],
+        ]
+        self.tmax = [
+            [80.0, 26.0],
+            [104.0, 40.0],
+        ]
+        self.BLOWER_OFF = 0
+        self.BLOWER_LOW = 1
+        self.BLOWER_MEDIUM = 2
+        self.BLOWER_HIGH = 3
+        self.FILTER_OFF = 0
+        self.FILTER_1 = 1
+        self.FILTER_2 = 2
+        self.FILTER_1_2 = 3
+        self.OFF = 0
+        self.ON = 1
+
+        # Internal states
         self.initial_crc = numpy.uint8(0xb5)
         self.host = hostname
         self.port = port
@@ -102,7 +125,9 @@ class BalboaSpaWifi:
         self.blower = 0
         self.mister = 0
         self.aux_array = [0, 0]
-        self.tempscale = TSCALE_F
+        self.tempscale = self.TSCALE_F
+        self.priming = 0
+        self.timescale = 0
         self.curtemp = 0.0
         self.settemp = 0.0
         self.heatmode = 0
@@ -112,15 +137,15 @@ class BalboaSpaWifi:
         self.circ_pump_status = 0
         self.light_status = [0, 0]
         self.mister_status = 0
+        self.blower_status = 0
         self.aux_status = [0, 0]
         self.lastupd = 0
         self.sleep_time = 60
         self.macaddr = 'Unknown'
-        self.prev_status_data = []
+        self.time_hour = 0
+        self.time_minute = 0
+        self.filtermode = 0
         self.log = logging.getLogger(__name__)
-
-        self.TSCALE_C = TSCALE_C
-        self.TSCALE_F = TSCALE_F
 
     def crc_update(self, crc, data, length):
         """ Update the crc value with new data
@@ -214,6 +239,248 @@ class BalboaSpaWifi:
 
         self.writer.write(data)
         await self.writer.drain()
+
+    async def send_temp_change(self, newtemp):
+        """ Change the set temp to newtemp. """
+        if not self.connected:
+            return
+
+        # Check if the temp is valid for the heatmode
+        if (newtemp < self.tmin[self.temprange][self.tempscale] or
+                newtemp > self.tmax[self.temprange][self.tempscale]):
+            self.log.error("Attempt to set temp outside of boundary of heatmode")
+            return
+
+        data = bytearray(8)
+        data[0] = M_START
+        data[1] = 6
+        data[2] = mtypes[BMTS_SET_TEMP][0]
+        data[3] = mtypes[BMTS_SET_TEMP][1]
+        data[4] = mtypes[BMTS_SET_TEMP][2]
+
+        if self.tempscale == self.TSCALE_C:
+            newtemp *= 2.0
+        val = int(round(newtemp))
+        data[5] = val
+        data[6] = self.balboa_calc_cs(data[1:], 5)
+        data[7] = M_END
+
+        self.writer.write(data)
+        await self.writer.drain()
+
+    async def change_light(self, light, newstate):
+        """ Change light #light to newstate. """
+        if not self.connected:
+            return
+
+        # we don't have 3 lights!
+        if light > 1:
+            return
+
+        # we don't have THIS light
+        if not self.light_array[light]:
+            return
+
+        # this is a toggle switch, not on/off
+        if self.light_status[light] == newstate:
+            return
+
+        # Setup the basic things we know
+        data = bytearray(9)
+        data[0] = M_START
+        data[1] = 7
+        data[2] = mtypes[BMTS_CONTROL_REQ][0]
+        data[3] = mtypes[BMTS_CONTROL_REQ][1]
+        data[4] = mtypes[BMTS_CONTROL_REQ][2]
+        data[5] = C_LIGHT1 if light == 0 else C_LIGHT2
+        data[6] = 0x00  # who knows?
+        data[7] = self.balboa_calc_cs(data[1:], 6)
+        data[8] = M_END
+
+        self.writer.write(data)
+        await self.writer.drain()
+
+    async def change_pump(self, pump, newstate):
+        """ Change pump #pump to newstate. """
+        if not self.connected:
+            return
+
+        # we don't have 7 pumps!
+        if pump > MAX_PUMPS:
+            return
+
+        # we don't have THIS pump
+        if not self.pump_array[pump]:
+            return
+
+        # this is a toggle switch, not on/off
+        if self.pump_status[pump] == newstate:
+            return
+
+        # what we know:
+        data = bytearray(9)
+        data[0] = M_START
+        data[1] = 7
+        data[2] = mtypes[BMTS_CONTROL_REQ][0]
+        data[3] = mtypes[BMTS_CONTROL_REQ][1]
+        data[4] = mtypes[BMTS_CONTROL_REQ][2]
+        data[6] = 0x00  # who knows?
+        data[8] = M_END
+
+        # calculate how many times to push the button
+        for iter in range(0, 2):
+            if newstate == ((self.pump_status[pump] + iter) % 3):
+                break
+
+        # now push the button until we hit desired state
+        for pushes in range(0, iter):
+            # 4 is 0, 5 is 2, presume 6 is 3?
+            data[5] = C_PUMP1 + pump
+            data[7] = self.balboa_calc_cs(data[1:], 6)
+            self.writer.write(data)
+            await self.writer.drain()
+
+    async def change_heatmode(self, newmode):
+        """ Change the spa's heatmode to newmode. """
+        # XXX - I'm not sure if this button cycles or not!
+        if not self.connected:
+            return
+
+        # check for sanity
+        if newmode > 2:
+            return
+
+        # this is a toggle switch, not on/off
+        if self.heatmode == newmode:
+            return
+
+        # what we know:
+        data = bytearray(9)
+        data[0] = M_START
+        data[1] = 7
+        data[2] = mtypes[BMTS_CONTROL_REQ][0]
+        data[3] = mtypes[BMTS_CONTROL_REQ][1]
+        data[4] = mtypes[BMTS_CONTROL_REQ][2]
+        data[5] = C_HEATMODE
+        data[6] = 0x00  # who knows?
+        data[7] = self.balboa_calc_cs(data[1:], 6)
+        data[8] = M_END
+        self.writer.write(data)
+        await self.writer.drain()
+
+    async def change_temprange(self, newmode):
+        """ Change the spa's temprange to newmode. """
+        if not self.connected:
+            return
+
+        # check for sanity
+        if newmode > 1:
+            return
+
+        # this is a toggle switch, not on/off
+        if self.temprange == newmode:
+            return
+
+        # what we know:
+        data = bytearray(9)
+        data[0] = M_START
+        data[1] = 7
+        data[2] = mtypes[BMTS_CONTROL_REQ][0]
+        data[3] = mtypes[BMTS_CONTROL_REQ][1]
+        data[4] = mtypes[BMTS_CONTROL_REQ][2]
+        data[5] = C_TEMPRANGE
+        data[6] = 0x00  # who knows?
+        data[7] = self.balboa_calc_cs(data[1:], 6)
+        data[8] = M_END
+
+    async def change_aux(self, aux, newstate):
+        """ Change aux #aux to newstate. """
+        if not self.connected:
+            return
+
+        # we don't have 3 auxs!
+        if aux > 1:
+            return
+
+        # we don't have THIS aux
+        if not self.aux_array[aux]:
+            return
+
+        # this is a toggle switch, not on/off
+        if self.aux_status[aux] == newstate:
+            return
+
+        # Setup the basic things we know
+        data = bytearray(9)
+        data[0] = M_START
+        data[1] = 7
+        data[2] = mtypes[BMTS_CONTROL_REQ][0]
+        data[3] = mtypes[BMTS_CONTROL_REQ][1]
+        data[4] = mtypes[BMTS_CONTROL_REQ][2]
+        data[5] = C_AUX1 if aux == 0 else C_AUX2
+        data[6] = 0x00  # who knows?
+        data[7] = self.balboa_calc_cs(data[1:], 6)
+        data[8] = M_END
+
+        self.writer.write(data)
+        await self.writer.drain()
+
+    async def change_mister(self, newmode):
+        """ Change the spa's mister to newmode. """
+        if not self.connected:
+            return
+
+        # check for sanity
+        if newmode > 1:
+            return
+
+        # this is a toggle switch, not on/off
+        if self.mister == newmode:
+            return
+
+        # what we know:
+        data = bytearray(9)
+        data[0] = M_START
+        data[1] = 7
+        data[2] = mtypes[BMTS_CONTROL_REQ][0]
+        data[3] = mtypes[BMTS_CONTROL_REQ][1]
+        data[4] = mtypes[BMTS_CONTROL_REQ][2]
+        data[5] = C_MISTER
+        data[6] = 0x00  # who knows?
+        data[7] = self.balboa_calc_cs(data[1:], 6)
+        data[8] = M_END
+
+    async def change_blower(self, newstate):
+        """ Change blower to newstate. """
+        # this is a 4-mode switch
+        if not self.connected:
+            return
+
+        # this is a toggle switch, not on/off
+        if self.blower_status == newstate:
+            return
+
+        # what we know:
+        data = bytearray(9)
+        data[0] = M_START
+        data[1] = 7
+        data[2] = mtypes[BMTS_CONTROL_REQ][0]
+        data[3] = mtypes[BMTS_CONTROL_REQ][1]
+        data[4] = mtypes[BMTS_CONTROL_REQ][2]
+        data[6] = 0x00  # who knows?
+        data[8] = M_END
+
+        # calculate how many times to push the button
+        for iter in range(0, 3):
+            if newstate == ((self.blower_status[blower] + iter) % 4):
+                break
+
+        # now push the button until we hit desired state
+        for pushes in range(0, iter):
+            data[5] = C_BLOWER
+            data[7] = self.balboa_calc_cs(data[1:], 6)
+            self.writer.write(data)
+            await self.writer.drain()
 
     def find_balboa_mtype(self, data):
         """ Look at a message and try to figure out what type it was. """
@@ -317,21 +584,31 @@ class BalboaSpaWifi:
             return
 
         if numpy.uint8(data[14] & 0x01):
-            self.tempscale = TSCALE_C
+            self.tempscale = self.TSCALE_C
         else:
-            self.tempscale = TSCALE_F
+            self.tempscale = self.TSCALE_F
+
+        self.time_hour = data[8]
+        self.time_minute = data[9]
+        if numpy.uint8(data[14] & 0x02):
+            self.timescale = self.TIMESCALE_12H
+        else:
+            self.timescale = self.TIMESCALE_24H
 
         temp = float(data[7])
         settemp = float(data[25])
-        if self.tempscale == TSCALE_C:
-            self.curtemp = (temp - 32.0) * 5.0 / 9.0
-            self.settemp = (settemp - 32.0) * 5.0 / 9.0
+        if self.tempscale == self.TSCALE_C:
+            self.curtemp = temp /2.0
+            self.settemp = settemp / 2.0
         else:
             self.curtemp = temp
             self.settemp = settemp
 
         # flag 2 is heatmode
         self.heatmode = numpy.uint8(data[10] & 0x03)
+
+        # flag 3 is filter mode
+        self.filter_mode = numpy.uint8((data[14] & 0x0c) >> 2)
 
         # flag 4 heating, temp range
         self.heatstate = numpy.uint8((data[15] & 0x30) >> 4)
@@ -360,6 +637,9 @@ class BalboaSpaWifi:
         if self.mister:
             self.mister_status = numpy.uint8(data[20] & 0x01)
 
+        if self.blower:
+            self.blower_status = numpy.uint8((data[18] & 0x0c) >> 2)
+
         for i in range(0, 2):
             if not self.aux_array[i]:
                 continue
@@ -378,7 +658,7 @@ class BalboaSpaWifi:
         try:
             header = await self.reader.readexactly(2)
         except Exception as e:
-            self.log.exception('Spa read failed: {0}'.format(str(e)))
+            self.log.error('Spa read failed: {0}'.format(str(e)))
             return None
 
         if header[0] == M_START:
@@ -391,7 +671,7 @@ class BalboaSpaWifi:
         try:
             data = await self.reader.readexactly(rlen)
         except Exception as e:
-            self.log.exception('Spa read failed: {0}'.format(str(e)))
+            self.log.errpr('Spa read failed: {0}'.format(str(e)))
             return None
 
         full_data = header + data
@@ -401,7 +681,7 @@ class BalboaSpaWifi:
             self.log.error('Message had bad CRC, discarding')
             return None
 
-        self.log.warning(full_data.hex())
+        self.log.debug(full_data.hex())
         return full_data
 
     async def check_connection_status(self):
@@ -440,3 +720,8 @@ class BalboaSpaWifi:
                 self.parse_panel_config_resp(data)
                 continue
             print("Unhandled mtype {0}".format(mtype))
+
+    # Simple accessors
+    def get_settemp(self):
+        """ Ask for the set temp. """
+        return self.settemp

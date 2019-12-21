@@ -56,6 +56,19 @@ async def connect_and_listen(spa_host):
     else:
         print('Config not loaded, something is wrong!')
         return 1
+
+    print("Sending unknown commands")
+    await spa.send_panel_req(2, 0)
+    for i in range(0, 4):
+        msg = await spa.read_one_message()
+        print("Got msg: {0}".format(msg.hex()))
+    await spa.send_panel_req(4, 0)
+    for i in range(0, 4):
+        msg = await spa.read_one_message()
+        print("Got msg: {0}".format(msg.hex()))
+    print("Please add this section to issue:")
+    print("https://github.com/garbled1/pybalboa/issues/1")
+
     await spa.disconnect()
     return 0
 
@@ -84,7 +97,7 @@ async def mini_engine(spahost):
     await asyncio.sleep(5)
 
     lastupd = 0
-    for i in range(0, 10):
+    for i in range(0, 3):
         await asyncio.sleep(1)
         if spa.lastupd != lastupd:
             lastupd = spa.lastupd
@@ -100,7 +113,34 @@ async def mini_engine(spahost):
             print("Light Status: {0}".format(str(spa.light_status)))
             print("Mister Status: {0}".format(spa.mister_status))
             print("Aux Status: {0}".format(str(spa.aux_status)))
+            print("Blower Status: {0}".format(spa.blower_status))
+            print("Spa Time: {0}:{1} {2}".format(
+                spa.time_hour,
+                spa.time_minute,
+                "12h" if (spa.timescale == spa.TIMESCALE_12H) else "24h"
+            ))
+            print("Filter Mode: {0}".format(spa.filter_mode))
             print()
+
+    print("Trying to set temperatures")
+    save_my_temp = spa.get_settemp()
+    print("Curent settemp: {0}".format(spa.get_settemp()))
+    if spa.tempscale == spa.TSCALE_F:
+        change_to = 100
+    else:
+        change_to = 24
+
+    await spa.send_temp_change(change_to)
+    await asyncio.sleep(2)
+
+    if (spa.get_settemp() != change_to):
+        print("Could not set temp to desired: {0}".format(spa.get_settemp()))
+    else:
+        print("New settemp: {0}".format(spa.get_settemp()))
+
+    await spa.send_temp_change(save_my_temp)
+    await asyncio.sleep(2)
+    print("Current temp should be set back to {0} is: {1}".format(save_my_temp, spa.get_settemp()))
 
     await spa.disconnect()
     return
