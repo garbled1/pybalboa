@@ -14,7 +14,7 @@ To Use::
   import asyncio
   import pybalboa
 
-  spa = balboa.BalboaSpaWifi(spa_host)
+  spa = pybalboa.BalboaSpaWifi(spa_host)
   await spa.connect()
   asyncio.ensure_future(spa.listen())
   await spa.disconnect()

@@ -1,5 +1,11 @@
 from setuptools import setup
 
+
+def readme():
+    with open('README.rst') as f:
+        return f.read()
+
+
 setup(name='pybalboa',
       version='0.1',
       description='Module to communicate with a Balboa spa wifi adapter',
@@ -10,7 +16,7 @@ setup(name='pybalboa',
           'License :: OSI Approved :: Apache Software License',
           'Programming Language :: Python :: 3 :: Only',
           'Topic :: Software Development :: Libraries :: Python Modules'
-      ],  
+      ],
       author='Tim Rightnour',
       author_email='root@garbled.net',
       license='Apache 2.0',
@@ -18,4 +24,5 @@ setup(name='pybalboa',
       install_requires=[
           'numpy',
       ],
+      include_package_data=True,
       zip_safe=False)
