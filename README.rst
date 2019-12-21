@@ -3,12 +3,13 @@ pybalboa
 
 Python Module to interface with a balboa spa
 
-To test::
+To test
   python3 pybalboa <ip-of-spa-wifi>
 
 To Use::
+
   See __main__.py for usage examples.
-  At a minimum:
+  At a minimum::
 
   import asyncio
   import pybalboa
