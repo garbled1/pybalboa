@@ -889,3 +889,75 @@ class BalboaSpaWifi:
         if text:
             return text_filter[self.filtermode]
         return self.filtermode
+
+    # Get lists of text values of various bits
+
+    def get_heatmode_stringlist(self):
+        """ Return a list of heatmode strings. """
+        return text_heatmode
+
+    def get_tscale_stringlist(self):
+        """Return a list of temperature scale strings."""
+        return text_tscale
+
+    def get_timescale_stringlist(self):
+        """Return a list of timescale strings."""
+        return text_timescale
+
+    def get_pump_stringlist(self):
+        """Return a list of pump status strings."""
+        return text_pump
+
+    def get_temprange_stringlist(self):
+        """Return a list of temperature range strings."""
+        return text_temprange
+
+    def get_blower_stringlist(self):
+        """Return a list of blower status strings."""
+        return text_blower
+
+    def get_switch_stringlist(self):
+        """Return a list of switch state strings."""
+        return text_switch
+
+    def get_filter_stringlist(self):
+        """Return a list of filter state strings."""
+        return text_filter
+
+    # tell us about the config
+
+    def get_nrof_pumps(self):
+        """Return how many pumps we have."""
+        pumps = 0
+        for p in self.pump_array:
+            if p:
+                pumps += 1
+        return pumps
+
+    def get_nrof_lights(self):
+        """Return how many lights we have."""
+        lights = 0
+        for l in self.light_array:
+            if l:
+                lights += 1
+        return lights
+
+    def get_nrof_aux(self):
+        """Return how many aux devices we have."""
+        aux = 0
+        for l in self.aux_array:
+            if l:
+                aux += 1
+        return aux
+
+    def get_pump_list(self):
+        """Return the actual pump list."""
+        return self.pump_array
+
+    def get_light_list(self):
+        """Return the actual light list."""
+        return self.light_array
+
+    def get_aux_list(self):
+        """Return the actual aux list."""
+        return self.aux_array
