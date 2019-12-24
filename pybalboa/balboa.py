@@ -742,7 +742,11 @@ class BalboaSpaWifi:
     async def listen(self):
         """ Listen to the spa babble forever. """
 
-        while self.connected:
+        while True:
+            if not self.connected:
+                # sleep and hope the checker fixes us
+                await asyncio.sleep(5)
+                continue
             data = await self.read_one_message()
             if data is None:
                 await asyncio.sleep(1)
