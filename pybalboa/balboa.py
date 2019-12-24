@@ -199,9 +199,9 @@ class BalboaSpaWifi:
         except (asyncio.TimeoutError, ConnectionRefusedError):
             self.log.error("Cannot connect to spa at {0}:{1}".format(self.host,
                                                                      self.port))
-            return 1
+            return False
         self.connected = True
-        return 0
+        return True
 
     async def disconnect(self):
         """ Stop talking to the spa."""
@@ -751,17 +751,35 @@ class BalboaSpaWifi:
 
             if mtype is None:
                 self.log.error("Spa sent an unknown message type.")
+                await asyncio.sleep(0.1)
                 continue
             if mtype == BMTR_CONFIG_RESP:
                 (self.macaddr, junk, morejunk) = self.parse_config_resp(data)
+                await asyncio.sleep(0.1)
                 continue
             if mtype == BMTR_STATUS_UPDATE:
                 await self.parse_status_update(data)
+                await asyncio.sleep(0.1)
                 continue
             if mtype == BMTR_PANEL_RESP:
                 self.parse_panel_config_resp(data)
+                await asyncio.sleep(0.1)
                 continue
             print("Unhandled mtype {0}".format(mtype))
+
+    async def spa_configured(self):
+        """Check if the spa has been configured.
+        Use in conjunction with listen.  First listen, then send some config
+        commands to set the spa up.
+        """
+        await self.send_config_req()
+        await self.send_panel_req(0, 1)
+        while True:
+            if (self.connected
+                    and self.config_loaded
+                    and self.macaddr != 'Unknown'):
+                return
+            await asyncio.sleep(1)
 
     # Simple accessors
     def get_tempscale(self, text=False):
