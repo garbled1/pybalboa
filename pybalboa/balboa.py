@@ -2,6 +2,8 @@ import asyncio
 import numpy
 import time
 import logging
+from socket import error as SocketError
+import errno
 
 BALBOA_DEFAULT_PORT = 4257
 
@@ -704,6 +706,13 @@ class BalboaSpaWifi:
 
         try:
             header = await self.reader.readexactly(2)
+        except SocketError as err:
+            if err.errno == errno.ECONNRESET:
+                self.log.error('Connection reset by peer')
+                self.connected = False
+            else:
+                self.log.error('Spa socket error: {0}'.format(str(err)))
+            return None
         except Exception as e:
             self.log.error('Spa read failed: {0}'.format(str(e)))
             return None
