@@ -737,7 +737,7 @@ class BalboaSpaWifi:
             if (self.lastupd + 5 * self.sleep_time) < time.time():
                 self.log.error("Spa stopped responding, requesting panel config.")
                 await self.send_panel_req(0, 1)
-                await asyncio.sleep(self.sleep_time)
+            await asyncio.sleep(self.sleep_time)
 
     async def listen(self):
         """ Listen to the spa babble forever. """
@@ -769,7 +769,7 @@ class BalboaSpaWifi:
                 self.parse_panel_config_resp(data)
                 await asyncio.sleep(0.1)
                 continue
-            print("Unhandled mtype {0}".format(mtype))
+            self.log.error("Unhandled mtype {0}".format(mtype))
 
     async def spa_configured(self):
         """Check if the spa has been configured.
@@ -784,6 +784,39 @@ class BalboaSpaWifi:
                     and self.macaddr != 'Unknown'):
                 return
             await asyncio.sleep(1)
+
+    async def listen_until_configured(self, maxiter=20):
+        """ Listen to the spa babble until we are configured."""
+
+        if not self.connected:
+            return False
+        for i in range(0, maxiter):
+            if (self.config_loaded and self.macaddr != 'Unknown'):
+                return True
+            data = await self.read_one_message()
+            if data is None:
+                await asyncio.sleep(1)
+                continue
+            mtype = self.find_balboa_mtype(data)
+
+            if mtype is None:
+                self.log.error("Spa sent an unknown message type.")
+                await asyncio.sleep(0.1)
+                continue
+            if mtype == BMTR_CONFIG_RESP:
+                (self.macaddr, junk, morejunk) = self.parse_config_resp(data)
+                await asyncio.sleep(0.1)
+                continue
+            if mtype == BMTR_STATUS_UPDATE:
+                await self.parse_status_update(data)
+                await asyncio.sleep(0.1)
+                continue
+            if mtype == BMTR_PANEL_RESP:
+                self.parse_panel_config_resp(data)
+                await asyncio.sleep(0.1)
+                continue
+            self.log.error("Unhandled mtype {0}".format(mtype))
+        return False
 
     # Simple accessors
     def get_tempscale(self, text=False):
