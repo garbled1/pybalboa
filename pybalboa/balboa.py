@@ -364,7 +364,6 @@ class BalboaSpaWifi:
 
     async def change_heatmode(self, newmode):
         """ Change the spa's heatmode to newmode. """
-        # XXX - I'm not sure if this button cycles or not!
         if not self.connected:
             return
 
@@ -387,8 +386,14 @@ class BalboaSpaWifi:
         data[6] = 0x00  # who knows?
         data[7] = self.balboa_calc_cs(data[1:], 6)
         data[8] = M_END
-        self.writer.write(data)
-        await self.writer.drain()
+
+        # calculate how many times to push the button
+        for iter in range(0, 2):
+            if newmode == ((self.heatmode + iter) % 3):
+                break
+        for pushes in range(0, iter):
+            self.writer.write(data)
+            await self.writer.drain()
 
     async def change_temprange(self, newmode):
         """ Change the spa's temprange to newmode. """
@@ -723,7 +728,7 @@ class BalboaSpaWifi:
             self.log.error('Message had bad CRC, discarding')
             return None
 
-        self.log.debug(full_data.hex())
+        # self.log.debug(full_data.hex())
         return full_data
 
     async def check_connection_status(self):
@@ -781,7 +786,8 @@ class BalboaSpaWifi:
         while True:
             if (self.connected
                     and self.config_loaded
-                    and self.macaddr != 'Unknown'):
+                    and self.macaddr != 'Unknown'
+                    and self.curtemp != 0.0):
                 return
             await asyncio.sleep(1)
 
@@ -791,7 +797,8 @@ class BalboaSpaWifi:
         if not self.connected:
             return False
         for i in range(0, maxiter):
-            if (self.config_loaded and self.macaddr != 'Unknown'):
+            if (self.config_loaded and self.macaddr != 'Unknown'
+                    and self.curtemp != 0.0):
                 return True
             data = await self.read_one_message()
             if data is None:
