@@ -1,7 +1,7 @@
 """ Nothing to see here """
 import sys
 
-__version__ = "0.1"
+__version__ = "0.3"
 
 __uri__ = 'https://github.com/garbled1/pybalboa'
 __title__ = "pybalboa"
