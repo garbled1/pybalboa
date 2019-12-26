@@ -22,7 +22,7 @@ C_MISTER = 0x0e
 C_AUX1 = 0x16
 C_AUX2 = 0x17
 C_BLOWER = 0x0c
-C_TEMPRANGE = 0x60
+C_TEMPRANGE = 0x50
 C_HEATMODE = 0x51
 
 MAX_PUMPS = 6
@@ -155,7 +155,7 @@ class BalboaSpaWifi:
         self.macaddr = 'Unknown'
         self.time_hour = 0
         self.time_minute = 0
-        self.filtermode = 0
+        self.filter_mode = 0
         self.prior_status = None
         self.new_data_cb = None
         self.log = logging.getLogger(__name__)
@@ -363,6 +363,7 @@ class BalboaSpaWifi:
             data[7] = self.balboa_calc_cs(data[1:], 6)
             self.writer.write(data)
             await self.writer.drain()
+            await asyncio.sleep(0.5)
 
     async def change_heatmode(self, newmode):
         """ Change the spa's heatmode to newmode. """
@@ -390,12 +391,13 @@ class BalboaSpaWifi:
         data[8] = M_END
 
         # calculate how many times to push the button
-        for iter in range(0, 2):
+        for iter in range(0, 3):
             if newmode == ((self.heatmode + iter) % 3):
                 break
         for pushes in range(0, iter):
             self.writer.write(data)
             await self.writer.drain()
+            await asyncio.sleep(0.5)
 
     async def change_temprange(self, newmode):
         """ Change the spa's temprange to newmode. """
@@ -500,7 +502,7 @@ class BalboaSpaWifi:
         data[8] = M_END
 
         # calculate how many times to push the button
-        for iter in range(0, 3):
+        for iter in range(0, 4):
             if newstate == ((self.blower_status + iter) % 4):
                 break
 
@@ -510,6 +512,7 @@ class BalboaSpaWifi:
             data[7] = self.balboa_calc_cs(data[1:], 6)
             self.writer.write(data)
             await self.writer.drain()
+            await asyncio.sleep(0.5)
 
     def find_balboa_mtype(self, data):
         """ Look at a message and try to figure out what type it was. """
@@ -958,8 +961,8 @@ class BalboaSpaWifi:
     def get_filtermode(self, text=False):
         """ Return the filtermode. """
         if text:
-            return text_filter[self.filtermode]
-        return self.filtermode
+            return text_filter[self.filter_mode]
+        return self.filter_mode
 
     # Get lists of text values of various bits
 
