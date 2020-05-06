@@ -104,12 +104,12 @@ class BalboaSpaWifi:
         self.TEMPRANGE_LOW = 0
         self.TEMPRANGE_HIGH = 1
         self.tmin = [
-            [50.0, 10.0],
             [80.0, 26.0],
+            [50.0, 10.0],
         ]
         self.tmax = [
-            [80.0, 26.0],
             [104.0, 40.0],
+            [80.0, 26.0],
         ]
         self.BLOWER_OFF = 0
         self.BLOWER_LOW = 1
@@ -123,7 +123,6 @@ class BalboaSpaWifi:
         self.ON = 1
 
         # Internal states
-        self.initial_crc = numpy.uint8(0xb5)
         self.host = hostname
         self.port = port
         self.reader = None
@@ -160,38 +159,23 @@ class BalboaSpaWifi:
         self.new_data_cb = None
         self.log = logging.getLogger(__name__)
 
-    def crc_update(self, crc, data, length):
-        """ Update the crc value with new data
-        crc = current crc value
-        data = bytearray
-        """
-
-        for cur in range(length):
-            for i in range(8):
-                bit = bool(numpy.uint8(crc & 0x80))
-                crc = numpy.uint8(numpy.uint8(crc << 1) |
-                                  numpy.uint8(numpy.uint8(data[cur] >> (7 - i)) & 0x01))
-                if (bit):
-                    crc = numpy.uint8(crc ^ 0x07)
-            crc &= 0xff
-        return crc
-
-    def crc_finalize(self, crc):
-        """ Calculate the final CRC """
-        for i in range(8):
-            bit = bool(numpy.uint8(crc & 0x80))
-            crc = numpy.uint8(numpy.uint8(crc << 1) | 0x00)
-            if bit:
-                crc ^= numpy.uint8(0x07)
-        return numpy.uint8(crc ^ 0x02)
-
     def balboa_calc_cs(self, data, length):
         """ Calculate the checksum byte for a balboa message """
 
-        crc = self.initial_crc
-        crc = self.crc_update(crc, data, length)
-        crc = self.crc_finalize(crc)
-        return crc
+        crc = 0xb5
+        for cur in range(length):
+            for i in range(8):
+                bit = crc & 0x80
+                crc = ((crc << 1) & 0xff) | ((data[cur] >> (7 - i)) & 0x01)
+                if (bit):
+                    crc = crc ^ 0x07
+            crc &= 0xff
+        for i in range(8):
+            bit = crc & 0x80
+            crc = (crc << 1) & 0xFF
+            if bit:
+                crc ^= 0x07
+        return crc ^ 0x02
 
     async def connect(self):
         """ Connect to the spa."""
