@@ -1,5 +1,4 @@
 import asyncio
-import numpy
 import time
 import logging
 from socket import error as SocketError
@@ -161,7 +160,6 @@ class BalboaSpaWifi:
 
     def balboa_calc_cs(self, data, length):
         """ Calculate the checksum byte for a balboa message """
-
         crc = 0xb5
         for cur in range(length):
             for i in range(8):
@@ -172,7 +170,7 @@ class BalboaSpaWifi:
             crc &= 0xff
         for i in range(8):
             bit = crc & 0x80
-            crc = (crc << 1) & 0xFF
+            crc = (crc << 1) & 0xff
             if bit:
                 crc ^= 0x07
         return crc ^ 0x02
@@ -239,9 +237,9 @@ class BalboaSpaWifi:
         data[2] = mtypes[BMTS_PANEL_REQ][0]
         data[3] = mtypes[BMTS_PANEL_REQ][1]
         data[4] = mtypes[BMTS_PANEL_REQ][2]
-        data[5] = numpy.uint8(ba)
+        data[5] = ba
         data[6] = 0
-        data[7] = numpy.uint8(bb)
+        data[7] = bb
         data[8] = self.balboa_calc_cs(data[1:], 7)
         data[9] = M_END
 
@@ -529,17 +527,17 @@ class BalboaSpaWifi:
         macaddr = f'{data[8]:x}:{data[9]:x}:{data[10]:x}'\
             f':{data[11]:x}:{data[12]:x}:{data[13]:x}'
         pump_array = [0, 0, 0, 0, 0, 0]
-        pump_array[0] = int(numpy.uint8(data[5] & 0x03) != 0)
-        pump_array[1] = int(numpy.uint8(data[5] & 0x0c) != 0)
-        pump_array[2] = int(numpy.uint8(data[5] & 0x30) != 0)
-        pump_array[3] = int(numpy.uint8(data[5] & 0xc0) != 0)
-        pump_array[4] = int(numpy.uint8(data[6] & 0x03) != 0)
-        pump_array[5] = int(numpy.uint8(data[6] & 0xc0) != 0)
+        pump_array[0] = int((data[5] & 0x03) != 0)
+        pump_array[1] = int((data[5] & 0x0c) != 0)
+        pump_array[2] = int((data[5] & 0x30) != 0)
+        pump_array[3] = int((data[5] & 0xc0) != 0)
+        pump_array[4] = int((data[6] & 0x03) != 0)
+        pump_array[5] = int((data[6] & 0xc0) != 0)
 
         light_array = [0, 0]
         # not a typo
-        light_array[1] = int(numpy.uint8(data[7] & 0x03) != 0)
-        light_array[0] = int(numpy.uint8(data[7] & 0xc0) != 0)
+        light_array[1] = int((data[7] & 0x03) != 0)
+        light_array[0] = int((data[7] & 0xc0) != 0)
 
         return (macaddr, pump_array, light_array)
 
@@ -557,23 +555,23 @@ class BalboaSpaWifi:
         """
 
         # pumps 0-5
-        self.pump_array[0] = int(numpy.uint8(data[5] & 0x03) != 0)
-        self.pump_array[1] = int(numpy.uint8(data[5] & 0x0c) != 0)
-        self.pump_array[2] = int(numpy.uint8(data[5] & 0x30) != 0)
-        self.pump_array[3] = int(numpy.uint8(data[5] & 0xc0) != 0)
-        self.pump_array[4] = int(numpy.uint8(data[6] & 0x03) != 0)
-        self.pump_array[5] = int(numpy.uint8(data[6] & 0xc0) != 0)
+        self.pump_array[0] = int((data[5] & 0x03) != 0)
+        self.pump_array[1] = int((data[5] & 0x0c) != 0)
+        self.pump_array[2] = int((data[5] & 0x30) != 0)
+        self.pump_array[3] = int((data[5] & 0xc0) != 0)
+        self.pump_array[4] = int((data[6] & 0x03) != 0)
+        self.pump_array[5] = int((data[6] & 0xc0) != 0)
 
         # lights 0-1
-        self.light_array[0] = int(numpy.uint8(data[7] & 0x03) != 0)
-        self.light_array[1] = int(numpy.uint8(data[7] & 0xc0) != 0)
+        self.light_array[0] = int((data[7] & 0x03) != 0)
+        self.light_array[1] = int((data[7] & 0xc0) != 0)
 
-        self.circ_pump = int(numpy.uint8(data[8] & 0x80) != 0)
-        self.blower = int(numpy.uint8(data[8] & 0x03) != 0)
-        self.mister = int(numpy.uint8(data[9] & 0x30) != 0)
+        self.circ_pump = int((data[8] & 0x80) != 0)
+        self.blower = int((data[8] & 0x03) != 0)
+        self.mister = int((data[9] & 0x30) != 0)
 
-        self.aux_array[0] = int(numpy.uint8(data[9] & 0x01) != 0)
-        self.aux_array[1] = int(numpy.uint8(data[9] & 0x02) != 0)
+        self.aux_array[0] = int((data[9] & 0x01) != 0)
+        self.aux_array[1] = int((data[9] & 0x02) != 0)
 
         self.config_loaded = True
 
@@ -615,14 +613,14 @@ class BalboaSpaWifi:
         if not have_new_data:
             return
 
-        if numpy.uint8(data[14] & 0x01):
+        if data[14] & 0x01:
             self.tempscale = self.TSCALE_C
         else:
             self.tempscale = self.TSCALE_F
 
         self.time_hour = data[8]
         self.time_minute = data[9]
-        if numpy.uint8(data[14] & 0x02):
+        if data[14] & 0x02:
             self.timescale = self.TIMESCALE_12H
         else:
             self.timescale = self.TIMESCALE_24H
@@ -637,23 +635,23 @@ class BalboaSpaWifi:
             self.settemp = settemp
 
         # flag 2 is heatmode
-        self.heatmode = numpy.uint8(data[10] & 0x03)
+        self.heatmode = data[10] & 0x03
 
         # flag 3 is filter mode
-        self.filter_mode = numpy.uint8((data[14] & 0x0c) >> 2)
+        self.filter_mode = (data[14] & 0x0c) >> 2
 
         # flag 4 heating, temp range
-        self.heatstate = numpy.uint8((data[15] & 0x30) >> 4)
-        self.temprange = numpy.uint8((data[15] & 0x04) >> 2)
+        self.heatstate = (data[15] & 0x30) >> 4
+        self.temprange = (data[15] & 0x04) >> 2
 
         for i in range(0, 6):
             if not self.pump_array[i]:
                 continue
             # 1-4 are in one byte, 5/6 are in another
             if i < 4:
-                self.pump_status[i] = numpy.uint8((data[16] >> i) & 0x03)
+                self.pump_status[i] = (data[16] >> i) & 0x03
             else:
-                self.pump_status[i] = numpy.uint8((data[17] >> (i-4)) & 0x03)
+                self.pump_status[i] = (data[17] >> (i - 4)) & 0x03
 
         if self.circ_pump:
             if data[18] == 0x02:
@@ -664,21 +662,21 @@ class BalboaSpaWifi:
         for i in range(0, 2):
             if not self.light_array[i]:
                 continue
-            self.light_status[i] = numpy.uint8(data[19] >> i & 0x03)
+            self.light_status[i] = (data[19] >> i) & 0x03
 
         if self.mister:
-            self.mister_status = numpy.uint8(data[20] & 0x01)
+            self.mister_status = data[20] & 0x01
 
         if self.blower:
-            self.blower_status = numpy.uint8((data[18] & 0x0c) >> 2)
+            self.blower_status = (data[18] & 0x0c) >> 2
 
         for i in range(0, 2):
             if not self.aux_array[i]:
                 continue
             if i == 0:
-                self.aux_status[i] = numpy.uint8(data[20] & 0x08)
+                self.aux_status[i] = data[20] & 0x08
             else:
-                self.aux_status[i] = numpy.uint8(data[20] & 0x10)
+                self.aux_status[i] = data[20] & 0x10
 
         self.lastupd = time.time()
         # populate prior_status
