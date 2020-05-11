@@ -695,6 +695,9 @@ class BalboaSpaWifi:
             if err.errno == errno.ECONNRESET:
                 self.log.error('Connection reset by peer')
                 self.connected = False
+            if err.errno == errno.EHOSTUNREACH:
+                self.log.error('Spa unreachable')
+                self.connected = False
             else:
                 self.log.error('Spa socket error: {0}'.format(str(err)))
             return None
