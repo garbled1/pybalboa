@@ -61,6 +61,7 @@ mtypes = [
 ]
 
 text_heatmode = ["Ready", "Ready in Rest", "Rest"]
+text_heatstate = ["Idle", "Heating", "Heat Waiting"]
 text_tscale = ["Farenheit", "Celcius"]
 text_timescale = ["12h", "24h"]
 text_pump = ["Off", "Low", "High"]
@@ -120,6 +121,9 @@ class BalboaSpaWifi:
         self.FILTER_1_2 = 3
         self.OFF = 0
         self.ON = 1
+        self.HEATSTATE_IDLE = 0
+        self.HEATSTATE_HEATING = 1
+        self.HEATSTATE_HEAT_WAITING = 2
 
         # Internal states
         self.host = hostname
@@ -690,7 +694,7 @@ class BalboaSpaWifi:
         self.filter_mode = (data[14] & 0x0c) >> 2
 
         # flag 4 heating, temp range
-        self.heatstate = int(((data[15] & 0x30) >> 4) != 0)
+        self.heatstate = (data[15] & 0x30) >> 4
         self.temprange = (data[15] & 0x04) >> 2
 
         for i in range(0, 6):
@@ -922,7 +926,7 @@ class BalboaSpaWifi:
     def get_heatstate(self, text=False):
         """ Ask for the current heat state. """
         if text:
-            return text_switch[self.heatstate]
+            return text_heatstate[self.heatstate]
         return self.heatstate
 
     def get_temprange(self, text=False):
