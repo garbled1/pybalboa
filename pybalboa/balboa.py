@@ -523,7 +523,7 @@ class BalboaSpaWifi:
         7e 1a 0a bf 24 64 dc 14 00 42 50 32 30 30 30 47 31
 
         17 18 19 20 21 22 23 24 25 26 27
-        SU S0 S1 S2 S3 22 23 24 25 26 ME
+        SU S0 S1 S2 S3 22 23 D0 D1 26 ME
         04 51 80 0c 6b 01 0a 02 00 f9 7e
 
         So far, I've managed to figure out:
@@ -532,12 +532,13 @@ class BalboaSpaWifi:
         V0.V1 = Software Vers (ex 20.0)
         SU = Setup
         SSID = "M100_220 V20.0"  so M[I0]_[I1] V[V0].[V1]
+        24/25 = could this be the dipswitch?  mine is 0100000000
 
         Examples:
-        7e1a0abf24 64dc 1400 4250323030304731 04 51800c6b 010a0200f9 7e <-- mine
-        7e1a0abf24 64c9 1300 4d51425035303120 01 0403daed 0106040035 7e
-        7e1a0abf24 64e1 2400 4d53343045202020 01 c3479636 030a440019 7e
-        7e1a0abf24 64e1 1400 4250323130304731 11 ebce9fd8 030a1600d7 7e
+        7e1a0abf24 64dc 1400 4250323030304731 04 51800c6b 010a 0200 f9 7e <-- mine
+        7e1a0abf24 64c9 1300 4d51425035303120 01 0403daed 0106 0400 35 7e
+        7e1a0abf24 64e1 2400 4d53343045202020 01 c3479636 030a 4400 19 7e
+        7e1a0abf24 64e1 1400 4250323130304731 11 ebce9fd8 030a 1600 d7 7e
 
         """
 
