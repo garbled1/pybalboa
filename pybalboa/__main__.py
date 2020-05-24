@@ -1,4 +1,7 @@
-import balboa
+try:
+    import balboa
+except ImportError:
+    import pybalboa as balboa
 import asyncio
 import sys
 

@@ -334,9 +334,12 @@ class BalboaSpaWifi:
         data[8] = M_END
 
         # calculate how many times to push the button
-        for iter in range(0, 2):
-            if newstate == ((self.pump_status[pump] + iter) % 3):
-                break
+        if self.pump_array[pump] == 2:
+            for iter in range(0, 2):
+                if newstate == ((self.pump_status[pump] + iter) % 3):
+                    break
+        else:
+            iter = 1
 
         # now push the button until we hit desired state
         for pushes in range(0, iter):
@@ -526,13 +529,14 @@ class BalboaSpaWifi:
 
         macaddr = f'{data[8]:x}:{data[9]:x}:{data[10]:x}'\
             f':{data[11]:x}:{data[12]:x}:{data[13]:x}'
+
         pump_array = [0, 0, 0, 0, 0, 0]
-        pump_array[0] = int((data[5] & 0x03) != 0)
-        pump_array[1] = int((data[5] & 0x0c) != 0)
-        pump_array[2] = int((data[5] & 0x30) != 0)
-        pump_array[3] = int((data[5] & 0xc0) != 0)
-        pump_array[4] = int((data[6] & 0x03) != 0)
-        pump_array[5] = int((data[6] & 0xc0) != 0)
+        pump_array[0] = int((data[5] & 0x03))
+        pump_array[1] = int((data[5] & 0x0c) >> 2)
+        pump_array[2] = int((data[5] & 0x30) >> 4)
+        pump_array[3] = int((data[5] & 0xc0) >> 6)
+        pump_array[4] = int((data[6] & 0x03))
+        pump_array[5] = int((data[6] & 0xc0) >> 6)
 
         light_array = [0, 0]
         # not a typo
@@ -555,12 +559,12 @@ class BalboaSpaWifi:
         """
 
         # pumps 0-5
-        self.pump_array[0] = int((data[5] & 0x03) != 0)
-        self.pump_array[1] = int((data[5] & 0x0c) != 0)
-        self.pump_array[2] = int((data[5] & 0x30) != 0)
-        self.pump_array[3] = int((data[5] & 0xc0) != 0)
-        self.pump_array[4] = int((data[6] & 0x03) != 0)
-        self.pump_array[5] = int((data[6] & 0xc0) != 0)
+        self.pump_array[0] = int((data[5] & 0x03))
+        self.pump_array[1] = int((data[5] & 0x0c) >> 2)
+        self.pump_array[2] = int((data[5] & 0x30) >> 4)
+        self.pump_array[3] = int((data[5] & 0xc0) >> 6)
+        self.pump_array[4] = int((data[6] & 0x03))
+        self.pump_array[5] = int((data[6] & 0xc0) >> 6)
 
         # lights 0-1
         self.light_array[0] = int((data[7] & 0x03) != 0)
