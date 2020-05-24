@@ -62,9 +62,15 @@ async def connect_and_listen(spa_host):
 
     print("Sending unknown commands")
     await spa.send_panel_req(2, 0)
-    for i in range(0, 4):
-        msg = await spa.read_one_message()
-        print("Got msg: {0}".format(msg.hex()))
+    msg = await spa.read_one_message()
+    print("Got msg: {0}".format(msg.hex()))
+    spa.parse_noclue1(msg)
+    print('Model: {0}'.format(spa.model_name))
+    print('Software Version: {0}'.format(spa.sw_vers))
+    print('Configuration Signature: {0}'.format(spa.cfg_sig))
+    print('Setup Mode: {0}'.format(str(spa.setup)))
+    print('Software Version ID: {0}'.format(spa.ssid))
+
     await spa.send_panel_req(4, 0)
     for i in range(0, 4):
         msg = await spa.read_one_message()
