@@ -645,7 +645,7 @@ class BalboaSpaWifi:
         self.filter_mode = (data[14] & 0x0c) >> 2
 
         # flag 4 heating, temp range
-        self.heatstate = (data[15] & 0x30) >> 4
+        self.heatstate = int(((data[15] & 0x30) >> 4) != 0)
         self.temprange = (data[15] & 0x04) >> 2
 
         for i in range(0, 6):
