@@ -103,12 +103,12 @@ class BalboaSpaWifi:
         self.TEMPRANGE_LOW = 0
         self.TEMPRANGE_HIGH = 1
         self.tmin = [
-            [80.0, 26.0],
             [50.0, 10.0],
+            [80.0, 26.0],
         ]
         self.tmax = [
-            [104.0, 40.0],
             [80.0, 26.0],
+            [104.0, 40.0],
         ]
         self.BLOWER_OFF = 0
         self.BLOWER_LOW = 1
