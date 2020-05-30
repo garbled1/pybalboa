@@ -385,10 +385,10 @@ class BalboaSpaWifi:
         data[8] = M_END
 
         # calculate how many times to push the button
-        for iter in range(0, 3):
+        for iter in range(1, 2+1):
             if newmode == ((self.heatmode + iter) % 3):
                 break
-        for pushes in range(0, iter):
+        for pushes in range(1, iter+1):
             self.writer.write(data)
             await self.writer.drain()
             await asyncio.sleep(0.5)
@@ -496,12 +496,12 @@ class BalboaSpaWifi:
         data[8] = M_END
 
         # calculate how many times to push the button
-        for iter in range(0, 4):
+        for iter in range(1, 4+1):
             if newstate == ((self.blower_status + iter) % 4):
                 break
 
         # now push the button until we hit desired state
-        for pushes in range(0, iter):
+        for pushes in range(1, iter+1):
             data[5] = C_BLOWER
             data[7] = self.balboa_calc_cs(data[1:], 6)
             self.writer.write(data)
