@@ -384,14 +384,22 @@ class BalboaSpaWifi:
         data[7] = self.balboa_calc_cs(data[1:], 6)
         data[8] = M_END
 
+        # You can't put the spa in REST, it can BE in rest, but you cannot
+        # force it into rest.  It's a tri-state, but a binary switch.
+
         # calculate how many times to push the button
-        for iter in range(1, 2+1):
-            if newmode == ((self.heatmode + iter) % 3):
-                break
-        for pushes in range(1, iter+1):
-            self.writer.write(data)
-            await self.writer.drain()
-            await asyncio.sleep(0.5)
+        if newmode == self.HEATMODE_READY:
+            if (self.heatmode == self.HEATMODE_REST or
+                    self.heatmode == self.HEATMODE_RNR):
+                self.writer.write(data)
+                await self.writer.drain()
+                await asyncio.sleep(0.5)
+
+        if newmode == self.HEATMODE_REST or newmode == self.HEATMODE_RNR:
+            if self.heatmode == self.HEATMODE_READY:
+                self.writer.write(data)
+                await self.writer.drain()
+                await asyncio.sleep(0.5)
 
     async def change_temprange(self, newmode):
         """ Change the spa's temprange to newmode. """

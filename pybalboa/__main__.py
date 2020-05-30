@@ -184,6 +184,25 @@ async def mini_engine(spahost):
     print("Pump Status: {0}".format(str(spa.pump_status)))
     print("Done")
 
+    print("Play with heatmode")
+    print("Heat Mode: {0}".format(spa.get_heatmode(True)))
+    print("Set to READY")
+    await spa.change_heatmode(0)
+    await asyncio.sleep(2)
+    print("Heat Mode: {0}".format(spa.get_heatmode(True)))
+    print("Set to REST")
+    await spa.change_heatmode(2)
+    await asyncio.sleep(2)
+    print("Heat Mode: {0}".format(spa.get_heatmode(True)))
+    print("Set to RNR")
+    await spa.change_heatmode(1)
+    await asyncio.sleep(2)
+    print("Heat Mode: {0}".format(spa.get_heatmode(True)))
+    print("Set to READY")
+    await spa.change_heatmode(0)
+    await asyncio.sleep(2)
+    print("Heat Mode: {0}".format(spa.get_heatmode(True)))
+
     await spa.disconnect()
     return
 
