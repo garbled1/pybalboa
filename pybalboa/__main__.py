@@ -151,6 +151,39 @@ async def mini_engine(spahost):
     await asyncio.sleep(2)
     print("Current temp should be set back to {0} is: {1}".format(save_my_temp, spa.get_settemp()))
 
+    print("Letting the spa settle....")
+    await asyncio.sleep(2)
+
+    print("Trying to operate pump 0 (first pump)")
+    print("Current state = {0}".format(spa.get_pump(0, text=True)))
+    print("Set to low")
+    await spa.change_pump(0, 1)
+    await asyncio.sleep(2)
+    print("Current state = {0}".format(spa.get_pump(0, text=True)))
+    print("Pump Status: {0}".format(str(spa.pump_status)))
+
+    print(" ok, next")
+    print("Set to off")
+    await spa.change_pump(0, 0)
+    await asyncio.sleep(2)
+    print("Current state = {0}".format(spa.get_pump(0, text=True)))
+    print("Pump Status: {0}".format(str(spa.pump_status)))
+
+    print(" ok, next")
+    print("Set to high")
+    await spa.change_pump(0, 2)
+    await asyncio.sleep(2)
+    print("Current state = {0}".format(spa.get_pump(0, text=True)))
+    print("Pump Status: {0}".format(str(spa.pump_status)))
+    print(" ok, next")
+
+    print("Set to off")
+    await spa.change_pump(0, 0)
+    await asyncio.sleep(2)
+    print("Current state = {0}".format(spa.get_pump(0, text=True)))
+    print("Pump Status: {0}".format(str(spa.pump_status)))
+    print("Done")
+
     await spa.disconnect()
     return
 
