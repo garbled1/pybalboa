@@ -7,7 +7,7 @@ def readme():
 
 
 setup(name='pybalboa',
-      version='0.11',
+      version='0.12',
       description='Module to communicate with a Balboa spa wifi adapter',
       long_description='Module to communicate with a Balboa spa wifi adapter',
       url='https://github.com/garbled1/pybalboa',
@@ -18,7 +18,7 @@ setup(name='pybalboa',
           'Programming Language :: Python :: 3 :: Only',
           'Topic :: Software Development :: Libraries :: Python Modules'
       ],
-      author='Tim Rightnour',
+      author='Tim Rightnour, Nathan Spencer',
       author_email='root@garbled.net',
       license='Apache 2.0',
       packages=['pybalboa'],
