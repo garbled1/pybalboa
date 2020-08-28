@@ -29,9 +29,9 @@ MAX_PUMPS = 6
 NROF_BMT = 14
 
 (BMTR_STATUS_UPDATE,
- BMTR_FILTER_CONFIG,
+ BMTR_FILTER_INFO_RESP,
  BMTS_CONFIG_REQ,
- BMTR_CONFIG_RESP,
+ BMTR_MOD_IDENT_RESP,
  BMTS_FILTER_REQ,
  BMTS_CONTROL_REQ,
  BMTS_SET_TEMP,
@@ -39,15 +39,15 @@ NROF_BMT = 14
  BMTS_SET_WIFI,
  BMTS_PANEL_REQ,
  BMTS_SET_TSCALE,
- BMTR_PANEL_RESP,
- BMTR_PANEL_NOCLUE1,
- BMTR_PANEL_NOCLUE2) = range(0, NROF_BMT)
+ BMTR_DEVICE_CONFIG_RESP,
+ BMTR_SYS_INFO_RESP,
+ BMTR_SETUP_PARAMS_RESP) = range(0, NROF_BMT)
 
 mtypes = [
     [0xFF, 0xAF, 0x13],  # BMTR_STATUS_UPDATE
-    [0x0A, 0xBF, 0x23],  # BMTR_FILTER_CONFIG
+    [0x0A, 0xBF, 0x23],  # BMTR_FILTER_INFO_RESP
     [0x0A, 0xBF, 0x04],  # BMTS_CONFIG_REQ
-    [0x0A, 0XBF, 0x94],  # BMTR_CONFIG_RESP
+    [0x0A, 0XBF, 0x94],  # BMTR_MOD_IDENT_RESP
     [0x0A, 0xBF, 0x22],  # BMTS_FILTER_REQ
     [0x0A, 0xBF, 0x11],  # BMTS_CONTROL_REQ
     [0x0A, 0xBF, 0x20],  # BMTS_SET_TEMP
@@ -55,14 +55,14 @@ mtypes = [
     [0x0A, 0xBF, 0x92],  # BMTS_SET_WIFI
     [0x0A, 0xBF, 0x22],  # BMTS_PANEL_REQ
     [0x0A, 0XBF, 0x27],  # BMTS_SET_TSCALE
-    [0x0A, 0xBF, 0x2E],  # BMTR_PANEL_RESP
-    [0x0A, 0xBF, 0x24],  # BMTR_PANEL_NOCLUE1
-    [0x0A, 0XBF, 0x25],  # BMTR_PANEL_NOCLUE2
+    [0x0A, 0xBF, 0x2E],  # BMTR_DEVICE_CONFIG_RESP
+    [0x0A, 0xBF, 0x24],  # BMTR_SYS_INFO_RESP
+    [0x0A, 0XBF, 0x25],  # BMTR_SETUP_PARAMS_RESP
 ]
 
-text_heatmode = ["Ready", "Ready in Rest", "Rest"]
+text_heatmode = ["Ready", "Rest", "Ready in Rest"]
 text_heatstate = ["Idle", "Heating", "Heat Waiting"]
-text_tscale = ["Farenheit", "Celcius"]
+text_tscale = ["Fahrenheit", "Celcius"]
 text_timescale = ["12h", "24h"]
 text_pump = ["Off", "Low", "High"]
 text_temprange = ["Low", "High"]
@@ -70,32 +70,14 @@ text_blower = ["Off", "Low", "Medium", "High"]
 text_switch = ["Off", "On"]
 text_filter = ["Off", "Cycle 1", "Cycle 2", "Cycle 1 and 2"]
 
-"""
-The CRC is annoying.  Doing CRC's in python is even more annoying than it
-should be.  I hate it.
- * Generated on Sun Apr  2 10:09:58 2017,
- * by pycrc v0.9, https://pycrc.org
- * using the configuration:
- *    Width         = 8
- *    Poly          = 0x07
- *    Xor_In        = 0x02
- *    ReflectIn     = False
- *    Xor_Out       = 0x02
- *    ReflectOut    = False
- *    Algorithm     = bit-by-bit
-
-https://github.com/garbled1/gnhast/blob/master/balboacoll/collector.c
-"""
-
-
 class BalboaSpaWifi:
     def __init__(self, hostname, port=BALBOA_DEFAULT_PORT):
         # API Constants
         self.TSCALE_C = 1
         self.TSCALE_F = 0
         self.HEATMODE_READY = 0
-        self.HEATMODE_RNR = 1  # Ready in Rest
-        self.HEATMODE_REST = 2
+        self.HEATMODE_REST = 1
+        self.HEATMODE_RNR = 2
         self.TIMESCALE_12H = 0
         self.TIMESCALE_24H = 1
         self.PUMP_OFF = 0
@@ -124,6 +106,10 @@ class BalboaSpaWifi:
         self.HEATSTATE_IDLE = 0
         self.HEATSTATE_HEATING = 1
         self.HEATSTATE_HEAT_WAITING = 2
+        self.VOLTAGE_240 = 240
+        self.VOLTAGE_UNKNOWN = 0
+        self.HEATERTYPE_STANDARD = "Standard"
+        self.HEATERTYPE_UNKNOWN = "Unknown"
 
         # Internal states
         self.host = hostname
@@ -133,6 +119,7 @@ class BalboaSpaWifi:
         self.connected = False
         self.config_loaded = False
         self.pump_array = [0, 0, 0, 0, 0, 0]
+        self.nr_of_pumps = 0
         self.light_array = [0, 0]
         self.circ_pump = 0
         self.blower = 0
@@ -152,9 +139,11 @@ class BalboaSpaWifi:
         self.mister_status = 0
         self.blower_status = 0
         self.aux_status = [0, 0]
+        self.wifistate = 0
         self.lastupd = 0
         self.sleep_time = 60
         self.macaddr = 'Unknown'
+        self.idigi_device_id = 'Unknown'
         self.time_hour = 0
         self.time_minute = 0
         self.filter_mode = 0
@@ -165,7 +154,22 @@ class BalboaSpaWifi:
         self.cfg_sig = 'Unknown'
         self.setup = 0
         self.ssid = 'Unknown'
+        self.voltage = 0
+        self.heater_type = 'Unknown'
+        self.dip_switch = '0000000000000000'
+        self.filter1_hour = 0
+        self.filter1_minute = 0
+        self.filter1_duration_hours = 0
+        self.filter1_duration_minutes = 0
+        self.filter2_enabled = 0
+        self.filter2_hour = 0
+        self.filter2_minute = 0
+        self.filter2_duration_hours = 0
+        self.filter2_duration_minutes = 0
         self.log = logging.getLogger(__name__)
+
+    def to_celsius(self, fahrenheit):
+        return ((fahrenheit - 32) / 1.8) // .5 * .5
 
     def balboa_calc_cs(self, data, length):
         """ Calculate the checksum byte for a balboa message """
@@ -200,8 +204,9 @@ class BalboaSpaWifi:
         """ Stop talking to the spa."""
         self.log.info("Disconnect requested")
         self.connected = False
-        self.writer.close()
-        await self.writer.wait_closed()
+        if not self.writer._loop.is_closed():
+            self.writer.close()
+            await self.writer.wait_closed()
 
     async def int_new_data_cb(self):
         """ Internal new data callback.
@@ -213,17 +218,15 @@ class BalboaSpaWifi:
         else:
             await self.new_data_cb()
 
-    async def send_config_req(self):
-        """ Ask the spa for it's config. """
+    async def send_mod_ident_req(self):
+        """ Ask for the module identification. """
         if not self.connected:
             return
 
         data = bytearray(7)
         data[0] = M_START
         data[1] = 5  # len of msg
-        data[2] = mtypes[BMTS_CONFIG_REQ][0]
-        data[3] = mtypes[BMTS_CONFIG_REQ][1]
-        data[4] = mtypes[BMTS_CONFIG_REQ][2]
+        data[2:4] = mtypes[BMTS_CONFIG_REQ]
         data[5] = 0x77  # known value
         data[6] = M_END
 
@@ -343,7 +346,7 @@ class BalboaSpaWifi:
         data[8] = M_END
 
         # calculate how many times to push the button
-        if self.pump_array[pump] == 2:
+        if self.pump_array[pump] > 1:
             for iter in range(1, 2+1):
                 if newstate == ((self.pump_status[pump] + iter) % 3):
                     break
@@ -368,8 +371,8 @@ class BalboaSpaWifi:
         if newmode > 2:
             return
 
-        # this is a toggle switch, not on/off
-        if self.heatmode == newmode:
+        # this is a toggle switch, not on/off, also RNR can not be set
+        if self.heatmode == newmode or newmode == self.HEATMODE_RNR:
             return
 
         # what we know:
@@ -384,22 +387,23 @@ class BalboaSpaWifi:
         data[7] = self.balboa_calc_cs(data[1:], 6)
         data[8] = M_END
 
-        # You can't put the spa in REST, it can BE in rest, but you cannot
-        # force it into rest.  It's a tri-state, but a binary switch.
+        # You can't put the spa in RNR, it can BE in RNR, but you cannot
+        # force it into RNR. It's a tri-state, but a binary switch.
 
         # calculate how many times to push the button
         if newmode == self.HEATMODE_READY:
-            if (self.heatmode == self.HEATMODE_REST or
-                    self.heatmode == self.HEATMODE_RNR):
+            if self.heatmode == self.HEATMODE_RNR: # this will change it to "rest" first
                 self.writer.write(data)
                 await self.writer.drain()
                 await asyncio.sleep(0.5)
+            self.writer.write(data)
+            await self.writer.drain()
+            await asyncio.sleep(0.5)
 
-        if newmode == self.HEATMODE_REST or newmode == self.HEATMODE_RNR:
-            if self.heatmode == self.HEATMODE_READY:
-                self.writer.write(data)
-                await self.writer.drain()
-                await asyncio.sleep(0.5)
+        if newmode == self.HEATMODE_REST:
+            self.writer.write(data)
+            await self.writer.drain()
+            await asyncio.sleep(0.5)
 
     async def change_temprange(self, newmode):
         """ Change the spa's temprange to newmode. """
@@ -527,89 +531,104 @@ class BalboaSpaWifi:
                 return i
         return None
 
-    def parse_noclue1(self, data):
-        """ Parse a noclue1 message.
+    def parse_system_information(self, data):
+        """ Parse a system information response.
 
-        00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16
-        MS SZ 02 03 04 I0 I1 V0 V1 T1 T2 T3 T4 T5 T6 T7 T8
-        7e 1a 0a bf 24 64 dc 14 00 42 50 32 30 30 30 47 31
-
-        17 18 19 20 21 22 23 24 25 26 27
-        SU S0 S1 S2 S3 22 23 D0 D1 26 ME
-        04 51 80 0c 6b 01 0a 02 00 f9 7e
-
-        So far, I've managed to figure out:
-        T1-T8 = model name in ascii.
-        S1-S3 = "Configuration Signature"
+        01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+        ML 02 03 04 I0 I1 V0 V1 T1 T2 T3 T4 T5 T6 T7 T8 SU S0 S1 S2 S3 HV HT D0 D1 26
+        1a 0a bf 24 64 dc 14 00 42 50 32 30 30 30 47 31 04 51 80 0c 6b 01 0a 02 00 f9
+        Bullfrog Stil7 / BWGWIFI1:
+        1A 0A BF 24 64 DC 24 00 42 46 42 50 32 30 53 20 03 5C D4 CC D7 01 0A 00 00 DE
+        
+        SSID = "M100_220 V20.0" so "M[I0]_[I1] V[V0].[V1]"
         V0.V1 = Software Vers (ex 20.0)
+        T1-T8 = model name in ascii
         SU = Setup
-        SSID = "M100_220 V20.0"  so M[I0]_[I1] V[V0].[V1]
-        24/25 = could this be the dipswitch?  mine is 0100000000
+        S0-S3 = "Configuration Signature"
+        HV = Heat Voltage, 01 = 240V, other unknown
+        HT = Heater Type, 0A = Standard, other unknown
+        D0D1 = dip switch setting of spa
 
         Examples:
-        7e1a0abf24 64dc 1400 4250323030304731 04 51800c6b 010a 0200 f9 7e <-- mine
-        7e1a0abf24 64c9 1300 4d51425035303120 01 0403daed 0106 0400 35 7e
-        7e1a0abf24 64e1 2400 4d53343045202020 01 c3479636 030a 4400 19 7e
-        7e1a0abf24 64e1 1400 4250323130304731 11 ebce9fd8 030a 1600 d7 7e
+        7e1a0abf24 64dc 1400 4250323030304731 04 51800c6b 01 0a 0200 f9 7e <-- mine
+        7e1a0abf24 64c9 1300 4d51425035303120 01 0403daed 01 06 0400 35 7e
+        7e1a0abf24 64e1 2400 4d53343045202020 01 c3479636 03 0a 4400 19 7e
+        7e1a0abf24 64e1 1400 4250323130304731 11 ebce9fd8 03 0a 1600 d7 7e
+        7e1a0abf24 64dc 2400 4246425032305320 03 5cd4ccd7 01 0a 0000 de 7e
 
         """
 
-        model = [
-            data[9], data[10],
-            data[11], data[12], data[13],
-            data[14], data[15], data[16],
-        ]
-        model_name = "".join(map(chr, model))
-        self.model_name = model_name.strip()
-
-        self.cfg_sig = f"{data[18]:x}{data[19]:x}{data[20]:x}{data[21]:x}"
-        self.sw_vers = f"{str(data[7])}.{str(data[8])}"
+        self.sw_vers = f'{data[7]}.{data[8]}'
+        self.ssid = f'M{data[5]}_{data[6]} V{self.sw_vers}'
+        self.model_name = "".join(map(chr, data[9:17])).strip()
         self.setup = data[17]
-        self.ssid = f"M{str(data[5])}_{str(data[6])} V{self.sw_vers}"
+        self.cfg_sig = f"{data[18]:x}{data[19]:x}{data[20]:x}{data[21]:x}"
+        self.voltage = self.VOLTAGE_240 if data[22] == 0x01 else self.VOLTAGE_UNKNOWN
+        self.heater_type = self.HEATERTYPE_STANDARD if data[23] == 0x0A else self.HEATERTYPE_UNKNOWN
+        self.dip_switch = f'{data[24]:08b}{data[25]:08b}'
 
-    def parse_config_resp(self, data):
-        """ Parse a config response.
+    def parse_setup_parameters(self, data):
+        """ Parse a setup parameters response.
 
-        SZ 02 03 04   05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22
-        1E 0A BF 94   02 14 80 00 15 27 37 EF ED 00 00 00 00 00 00 00 00 00
-        23 24 25 26 27 28 29 CB
-        15 27 FF FF 37 EF ED 42
-
-        22,23,24 seems to be mac prefix,  27-29 suffix.  25/26 unk
-        8-13 also full macaddr.
-        05 - nrof pumps. Bitmask 2 bits per pump.
-        06 - P6xxxxP5
-        07 - L1xxxxL2
-
-        I feel that the nrof pumps is untrustworthy here.
+        01 02 03 04 05 06 07 08 09 10 11 12 13 14
+        ML AD PF PT 05 06 LL LH HL HH 11 12 13 CB
+        Bullfrog Stil7 / BWGWIFI1:
+        0E 0A BF 25 04 03 32 63 50 68 E9 01 45 4F
+        
+        05-06 - unknown
+        07 = LL (low low) low range temperature's minimum
+        08 - LH (low high) low range temperature's maximum
+        09 - HL (high low) high range temperature's minimum
+        10 - HH (high high) high range temperature's maximum
+        11 - unknown
+        12 - number of pumps
+        13 - unknown
         """
 
-        macaddr = f'{data[8]:x}:{data[9]:x}:{data[10]:x}'\
-            f':{data[11]:x}:{data[12]:x}:{data[13]:x}'
+        self.tmin[0] = [data[7], self.to_celsius(data[7])]
+        self.tmax[0] = [data[8], self.to_celsius(data[8])]
+        self.tmin[1] = [data[9], self.to_celsius(data[9])]
+        self.tmax[1] = [data[10], self.to_celsius(data[10])]
+        self.nr_of_pumps = (data[12] & 1)\
+            + (data[12] >> 1 & 1)\
+            + (data[12] >> 2 & 1)\
+            + (data[12] >> 3 & 1)\
+            + (data[12] >> 4 & 1)\
+            + (data[12] >> 5 & 1)
 
-        pump_array = [0, 0, 0, 0, 0, 0]
-        pump_array[0] = int((data[5] & 0x03))
-        pump_array[1] = int((data[5] & 0x0c) >> 2)
-        pump_array[2] = int((data[5] & 0x30) >> 4)
-        pump_array[3] = int((data[5] & 0xc0) >> 6)
-        pump_array[4] = int((data[6] & 0x03))
-        pump_array[5] = int((data[6] & 0xc0) >> 6)
+    def parse_module_identification(self, data):
+        """ Parse a module identification response.
 
-        light_array = [0, 0]
-        # not a typo
-        light_array[1] = int((data[7] & 0x03) != 0)
-        light_array[0] = int((data[7] & 0xc0) != 0)
+        ML 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 CB
+        1E 0A BF 94 02 14 80 00 15 27 37 EF ED 00 00 00 00 00 00 00 00 00 15 27 FF FF 37 EF ED 42
+        Bullfrog Stil7 / BWGWIFI1:
+        1E 0A BF 94 02 14 80 00 15 27 ## ## ## 00 00 00 00 00 00 00 00 00 15 27 FF FF ## ## ## ##
 
-        return (macaddr, pump_array, light_array)
+        05-07 - unknown
+        08-13 - mac address
+        14-29 - iDigi device id (used to communicate with Balboa cloud API)
+        """
 
-    def parse_panel_config_resp(self, data):
+        self.macaddr = f'{data[8]:02x}:{data[9]:02x}:{data[10]:02x}'\
+            f':{data[11]:02x}:{data[12]:02x}:{data[13]:02x}'
+        self.idigi_device_id = f'{data[14:18].hex()}-{data[18:22].hex()}-{data[22:26].hex()}-{data[26:30].hex()}'.upper()
+
+        return (self.macaddr, self.idigi_device_id)
+
+    def parse_device_configuration(self, data):
         """ Parse a panel config response.
-        SZ 02 03 04   05 06 07 08 09 10 CB
-        0B 0A BF 2E   0A 00 01 50 00 00 BF
+        ML 02 03 04 05 06 07 08 09 10 CB
+        0B 0A BF 2E 0A 00 01 50 00 00 BF
+        Bullfrog Stil7 / BWGWIFI1:
+        0B 0A BF 2E 02 00 05 D0 00 00 A3
 
-        05 - nrof pumps. Bitmask 2 bits per pump.
-        06 - P6xxxxP5
-        07 - L2xxxxL1 - Lights (notice the order!)
+        *** each bit pair appears to indicate the number of settings per "device"
+        *** so if you have the byte "0A" in byte 05 (pumps 1-4), this translates to 00001010 in binary
+        *** pump 1 is then "10" (the right most bit pair) which equals 2 to indicate 2 settings (low/high) in addition to "off" 
+        *** pump 2 is also "10" to indicate 2 settings, while pump 3 and 4 are "00" so only "off" (or not available) exists
+        05 - P4P3P2P1 - Pumps 1-4
+        06 - P6xxxxP5 - Pumps 5-6
+        07 - xxxxL2L1 - Lights 1-2
         08 - CxxxxxBL - circpump, blower
         09 - xxMIxxAA - mister, Aux2, Aux1
 
@@ -624,8 +643,8 @@ class BalboaSpaWifi:
         self.pump_array[5] = int((data[6] & 0xc0) >> 6)
 
         # lights 0-1
-        self.light_array[0] = int((data[7] & 0x03) != 0)
-        self.light_array[1] = int((data[7] & 0xc0) != 0)
+        self.light_array[0] = int((data[7] & 0x03))
+        self.light_array[1] = int((data[7] >> 2) & 0x03)
 
         self.circ_pump = int((data[8] & 0x80) != 0)
         self.blower = int((data[8] & 0x03) != 0)
@@ -636,21 +655,44 @@ class BalboaSpaWifi:
 
         self.config_loaded = True
 
+    def parse_filter_cycle_info(self, data):
+        """ Parse a filter cycle info response.
+        01 02 03 04 05 06 07 08 09 10 11 12 13
+        ML AD PF PT 1H 1M 1D 1E 2H 2M 2D 2E CB
+        Bullfrog Stil7 / BWGWIFI1:
+        0D 0A BF 23 13 00 02 00 88 00 01 00 9F
+
+        1H - filter cycle 1's start hour
+        1M - filter cycle 1's start minute
+        1D - filter cycle 1's duration hours
+        1E - filter cycle 1's duration minutes
+        2H - filter cycle 2's start hour
+        2M - filter cycle 2's start minute
+        2D - filter cycle 2's duration hours
+        2E - filter cycle 2's duration minutes
+        """
+        self.filter1_hour = data[5]
+        self.filter1_minute = data[6]
+        self.filter1_duration_hours = data[7]
+        self.filter1_duration_minutes = data[8]
+        self.filter2_enabled = data[9] >> 7
+        self.filter2_hour = data[9] ^ (self.filter2_enabled << 7)
+        self.filter2_minute = data[10]
+        self.filter2_duration_hours = data[11]
+        self.filter2_duration_minutes = data[12]
+
     async def parse_status_update(self, data):
         """ Parse a status update from the spa.
         Normally the spa spams these at a very high rate of speed. However,
         once in a while it will decide to just stop.  If you send it a panel
         conf request, it will resume.
 
-        00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23
-        MS ML MT MT MT XX F1 CT HH MM F2  X  X  X F3 F4 PP  X CP LF MB  X  X  X
-        7E 1D FF AF 13  0  0 64  8 2D  0  0  1  0  0  4  0  0  0  0  0  0  0  0
+        01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29
+        ML MT MT MT HM F1 CT HH MM F2  X  X  X F3 F4 PP  X CP LF MB  X  X  X  X ST  X  X  X CB
+        1D FF AF 13  0  0 64  8 2D  0  0  1  0  0  4  0  0  0  0  0  0  0  0  0 64  0  0  0  6
+        1D FF AF 13 00 01 FF 09 0A 01 26 01 00 02 00 00 00 00 00 00 00 00 02 00 5B 00 00 12 7E
 
-        24 25 26 27 28 29 30
-        X  ST X  X  X CB  ME
-        0  64 0  0  0  6  7E
-
-        20- mister/blower
+        20 - mister/blower
         """
 
         # If we don't know the config, just ask for it and wait for that
@@ -681,7 +723,7 @@ class BalboaSpaWifi:
 
         self.time_hour = data[8]
         self.time_minute = data[9]
-        if data[14] & 0x02:
+        if data[14] & 0x02 == 0:
             self.timescale = self.TIMESCALE_12H
         else:
             self.timescale = self.TIMESCALE_24H
@@ -723,7 +765,7 @@ class BalboaSpaWifi:
         for i in range(0, 2):
             if not self.light_array[i]:
                 continue
-            self.light_status[i] = (data[19] >> i) & 0x03
+            self.light_status[i] = ((data[19] >> i*2) & 0x03) >> 1
 
         if self.mister:
             self.mister_status = data[20] & 0x01
@@ -820,20 +862,24 @@ class BalboaSpaWifi:
                 self.log.error("Spa sent an unknown message type.")
                 await asyncio.sleep(0.1)
                 continue
-            if mtype == BMTR_CONFIG_RESP:
-                (self.macaddr, junk, morejunk) = self.parse_config_resp(data)
+            if mtype == BMTR_MOD_IDENT_RESP:
+                self.parse_module_identification(data)
                 await asyncio.sleep(0.1)
                 continue
             if mtype == BMTR_STATUS_UPDATE:
                 await self.parse_status_update(data)
                 await asyncio.sleep(0.1)
                 continue
-            if mtype == BMTR_PANEL_RESP:
-                self.parse_panel_config_resp(data)
+            if mtype == BMTR_DEVICE_CONFIG_RESP:
+                self.parse_device_configuration(data)
                 await asyncio.sleep(0.1)
                 continue
-            if mtype == BMTR_PANEL_NOCLUE1:
-                self.parse_noclue1(data)
+            if mtype == BMTR_SYS_INFO_RESP:
+                self.parse_system_information(data)
+                await asyncio.sleep(0.1)
+                continue
+            if mtype == BMTR_FILTER_INFO_RESP:
+                self.parse_filter_cycle_info(data)
                 await asyncio.sleep(0.1)
                 continue
             self.log.error("Unhandled mtype {0}".format(mtype))
@@ -843,7 +889,7 @@ class BalboaSpaWifi:
         Use in conjunction with listen.  First listen, then send some config
         commands to set the spa up.
         """
-        await self.send_config_req()
+        await self.send_mod_ident_req()
         await self.send_panel_req(0, 1)
         # get the versions and model data
         await self.send_panel_req(2, 0)
@@ -874,16 +920,16 @@ class BalboaSpaWifi:
                 self.log.error("Spa sent an unknown message type.")
                 await asyncio.sleep(0.1)
                 continue
-            if mtype == BMTR_CONFIG_RESP:
-                (self.macaddr, junk, morejunk) = self.parse_config_resp(data)
+            if mtype == BMTR_MOD_IDENT_RESP:
+                self.parse_module_identification(data)
                 await asyncio.sleep(0.1)
                 continue
             if mtype == BMTR_STATUS_UPDATE:
                 await self.parse_status_update(data)
                 await asyncio.sleep(0.1)
                 continue
-            if mtype == BMTR_PANEL_RESP:
-                self.parse_panel_config_resp(data)
+            if mtype == BMTR_DEVICE_CONFIG_RESP:
+                self.parse_device_configuration(data)
                 await asyncio.sleep(0.1)
                 continue
             self.log.error("Unhandled mtype {0}".format(mtype))
@@ -904,6 +950,15 @@ class BalboaSpaWifi:
 
     def get_ssid(self):
         return self.ssid
+
+    def get_voltage(self):
+        return self.voltage
+
+    def get_heater_type(self):
+        return self.heater_type
+
+    def get_dip_switch(self):
+        return self.dip_switch
 
     def get_tempscale(self, text=False):
         """ What is our tempscale? """
@@ -1024,6 +1079,10 @@ class BalboaSpaWifi:
     def get_macaddr(self):
         """ Return the macaddr of the spa wifi """
         return self.macaddr
+
+    def get_idigi_device_id(self):
+        """ Return the idigi device id of the spa wifi """
+        return self.idigi_device_id
 
     def get_filtermode(self, text=False):
         """ Return the filtermode. """
