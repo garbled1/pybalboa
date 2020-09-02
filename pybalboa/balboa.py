@@ -3,6 +3,7 @@ import time
 import logging
 from socket import error as SocketError
 import errno
+import warnings
 
 BALBOA_DEFAULT_PORT = 4257
 
@@ -218,6 +219,12 @@ class BalboaSpaWifi:
         else:
             await self.new_data_cb()
 
+    async def send_config_req(self):
+        """ send_config_req() has been deprecated in favor of send_mod_ident_req() """
+        warnings.warn(
+            "send_config_req() has been deprecated in favor of send_mod_ident_req()", DeprecationWarning)
+        return await self.send_mod_ident_req()
+
     async def send_mod_ident_req(self):
         """ Ask for the module identification. """
         if not self.connected:
@@ -266,7 +273,8 @@ class BalboaSpaWifi:
         # Check if the temp is valid for the heatmode
         if (newtemp < self.tmin[self.temprange][self.tempscale] or
                 newtemp > self.tmax[self.temprange][self.tempscale]):
-            self.log.error("Attempt to set temp outside of boundary of heatmode")
+            self.log.error(
+                "Attempt to set temp outside of boundary of heatmode")
             return
 
         data = bytearray(8)
@@ -531,6 +539,12 @@ class BalboaSpaWifi:
                 return i
         return None
 
+    def parse_noclue1(self, data):
+        """ parse_noclue1(data) has been deprecated in favor of parse_system_information(data) """
+        warnings.warn(
+            "parse_noclue1(data) has been deprecated in favor of parse_system_information(data)", DeprecationWarning)
+        return self.parse_system_information(data)
+
     def parse_system_information(self, data):
         """ Parse a system information response.
 
@@ -596,6 +610,13 @@ class BalboaSpaWifi:
             + (data[12] >> 4 & 1)\
             + (data[12] >> 5 & 1)
 
+    def parse_config_resp(self, data):
+        """ parse_config_resp(data) has been deprecated in favor of parse_module_identification(data) """
+        warnings.warn(
+            "parse_config_resp(data) has been deprecated in favor of parse_module_identification(data)", DeprecationWarning)
+        self.parse_module_identification(data)
+        return (self.macaddr, self.pump_array, self.light_array)
+
     def parse_module_identification(self, data):
         """ Parse a module identification response.
 
@@ -613,7 +634,11 @@ class BalboaSpaWifi:
             f':{data[11]:02x}:{data[12]:02x}:{data[13]:02x}'
         self.idigi_device_id = f'{data[14:18].hex()}-{data[18:22].hex()}-{data[22:26].hex()}-{data[26:30].hex()}'.upper()
 
-        return (self.macaddr, self.idigi_device_id)
+    def parse_panel_config_resp(self, data):
+        """ parse_panel_config_resp(data) has been deprecated in favor of parse_device_configuration(data) """
+        warnings.warn(
+            "parse_panel_config_resp(data) has been deprecated in favor of parse_device_configuration(data)", DeprecationWarning)
+        return self.parse_device_configuration(data)
 
     def parse_device_configuration(self, data):
         """ Parse a panel config response.
@@ -840,7 +865,8 @@ class BalboaSpaWifi:
                 await asyncio.sleep(10)
                 continue
             if (self.lastupd + 5 * self.sleep_time) < time.time():
-                self.log.error("Spa stopped responding, requesting panel config.")
+                self.log.error(
+                    "Spa stopped responding, requesting panel config.")
                 await self.send_panel_req(0, 1)
             await asyncio.sleep(self.sleep_time)
 
@@ -930,6 +956,14 @@ class BalboaSpaWifi:
                 continue
             if mtype == BMTR_DEVICE_CONFIG_RESP:
                 self.parse_device_configuration(data)
+                await asyncio.sleep(0.1)
+                continue
+            if mtype == BMTR_SYS_INFO_RESP:
+                self.parse_system_information(data)
+                await asyncio.sleep(0.1)
+                continue
+            if mtype == BMTR_FILTER_INFO_RESP:
+                self.parse_filter_cycle_info(data)
                 await asyncio.sleep(0.1)
                 continue
             self.log.error("Unhandled mtype {0}".format(mtype))
