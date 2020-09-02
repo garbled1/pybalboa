@@ -915,10 +915,11 @@ class BalboaSpaWifi:
         Use in conjunction with listen.  First listen, then send some config
         commands to set the spa up.
         """
-        await self.send_mod_ident_req()
-        await self.send_panel_req(0, 1)
-        # get the versions and model data
-        await self.send_panel_req(2, 0)
+        await self.send_mod_ident_req() # request module identification
+        await self.send_panel_req(0, 1) # request device configuration
+        await self.send_panel_req(2, 0) # request system information
+        await self.send_panel_req(4, 0) # request setup parameters
+        await self.send_panel_req(1, 0) # request filter cycle info
         while True:
             if (self.connected
                     and self.config_loaded
