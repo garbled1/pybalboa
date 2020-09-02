@@ -904,6 +904,10 @@ class BalboaSpaWifi:
                 self.parse_system_information(data)
                 await asyncio.sleep(0.1)
                 continue
+            if mtype == BMTR_SETUP_PARAMS_RESP:
+                self.parse_setup_parameters(data)
+                await asyncio.sleep(0.1)
+                continue
             if mtype == BMTR_FILTER_INFO_RESP:
                 self.parse_filter_cycle_info(data)
                 await asyncio.sleep(0.1)
@@ -961,6 +965,10 @@ class BalboaSpaWifi:
                 continue
             if mtype == BMTR_SYS_INFO_RESP:
                 self.parse_system_information(data)
+                await asyncio.sleep(0.1)
+                continue
+            if mtype == BMTR_SETUP_PARAMS_RESP:
+                self.parse_setup_parameters(data)
                 await asyncio.sleep(0.1)
                 continue
             if mtype == BMTR_FILTER_INFO_RESP:
