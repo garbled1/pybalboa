@@ -20,12 +20,12 @@ def test_crc():
     spa = balboa.BalboaSpaWifi('gnet-37efed')
 
     result = spa.balboa_calc_cs(conf_req[1:], 4)
-    print('Expected CRC={0} got {1}'.format(hex(conf_req_crc), hex(result)))
+    print(f'Expected CRC={conf_req_crc:#04x} got {result:#04x}')
     if result != conf_req_crc:
         return 1
 
     result = spa.balboa_calc_cs(status_update[1:], 28)
-    print('Expected CRC={0} got {1}'.format(hex(status_update_crc), hex(result)))
+    print(f'Expected CRC={status_update_crc:#04x} got {result:#04x}')
     print()
     if result != status_update_crc:
         return 1
