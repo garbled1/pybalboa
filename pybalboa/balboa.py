@@ -755,12 +755,9 @@ class BalboaSpaWifi:
 
         temp = float(data[7])
         settemp = float(data[25])
-        if self.tempscale == self.TSCALE_C:
-            self.curtemp = temp / 2.0
-            self.settemp = settemp / 2.0
-        else:
-            self.curtemp = temp
-            self.settemp = settemp
+        self.curtemp = temp / (2 if self.tempscale ==
+                               self.TSCALE_C else 1) if temp != 255 else None
+        self.settempt = settemp / (2 if self.tempscale == self.TSCALE_C else 1)
 
         # flag 2 is heatmode
         self.heatmode = data[10] & 0x03
