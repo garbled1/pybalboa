@@ -438,6 +438,9 @@ class BalboaSpaWifi:
         data[7] = self.balboa_calc_cs(data[1:], 6)
         data[8] = M_END
 
+        self.writer.write(data)
+        await self.writer.drain()
+
     async def change_aux(self, aux, newstate):
         """ Change aux #aux to newstate. """
         if not self.connected:
