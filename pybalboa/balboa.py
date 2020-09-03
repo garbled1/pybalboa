@@ -498,6 +498,9 @@ class BalboaSpaWifi:
         data[7] = self.balboa_calc_cs(data[1:], 6)
         data[8] = M_END
 
+        self.writer.write(data)
+        await self.writer.drain()
+
     async def change_blower(self, newstate):
         """ Change blower to newstate. """
         # this is a 4-mode switch
