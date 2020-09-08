@@ -198,6 +198,9 @@ class BalboaSpaWifi:
             self.log.error("Cannot connect to spa at {0}:{1}".format(self.host,
                                                                      self.port))
             return False
+        except Exception as e:
+            self.log.error(f'Error connecting to spa at {self.host}:{self.port}: {e}')
+            return False
         self.connected = True
         return True
 
