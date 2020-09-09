@@ -7,8 +7,7 @@ import warnings
 
 BALBOA_DEFAULT_PORT = 4257
 
-M_START = 0x7e
-M_END = 0x7e
+M_STARTEND = 0x7e
 
 C_PUMP1 = 0x04
 C_PUMP2 = 0x05
@@ -70,6 +69,7 @@ text_temprange = ["Low", "High"]
 text_blower = ["Off", "Low", "Medium", "High"]
 text_switch = ["Off", "On"]
 text_filter = ["Off", "Cycle 1", "Cycle 2", "Cycle 1 and 2"]
+
 
 class BalboaSpaWifi:
     def __init__(self, hostname, port=BALBOA_DEFAULT_PORT):
@@ -199,7 +199,8 @@ class BalboaSpaWifi:
                                                                      self.port))
             return False
         except Exception as e:
-            self.log.error(f'Error connecting to spa at {self.host}:{self.port}: {e}')
+            self.log.error(
+                f'Error connecting to spa at {self.host}:{self.port}: {e}')
             return False
         self.connected = True
         return True
@@ -230,18 +231,7 @@ class BalboaSpaWifi:
 
     async def send_mod_ident_req(self):
         """ Ask for the module identification. """
-        if not self.connected:
-            return
-
-        data = bytearray(7)
-        data[0] = M_START
-        data[1] = 5  # len of msg
-        data[2:4] = mtypes[BMTS_CONFIG_REQ]
-        data[5] = 0x77  # known value
-        data[6] = M_END
-
-        self.writer.write(data)
-        await self.writer.drain()
+        await self.send_message(*mtypes[BMTS_CONFIG_REQ])
 
     async def send_panel_req(self, ba, bb):
         """ Send a panel request, 2 bytes of data.
@@ -250,301 +240,146 @@ class BalboaSpaWifi:
         2,0 - 7E1A0ABF24 64DC140042503230303047310451800C6B010A0200F97E
         4,0 - 7E0E0ABF25 120432635068290341197E
         """
-        if not self.connected:
-            return
-
-        data = bytearray(10)
-        data[0] = M_START
-        data[1] = 8
-        data[2] = mtypes[BMTS_PANEL_REQ][0]
-        data[3] = mtypes[BMTS_PANEL_REQ][1]
-        data[4] = mtypes[BMTS_PANEL_REQ][2]
-        data[5] = ba
-        data[6] = 0
-        data[7] = bb
-        data[8] = self.balboa_calc_cs(data[1:], 7)
-        data[9] = M_END
-
-        self.writer.write(data)
-        await self.writer.drain()
+        await self.send_message(*mtypes[BMTS_PANEL_REQ], ba, 0, bb)
 
     async def send_temp_change(self, newtemp):
         """ Change the set temp to newtemp. """
-        if not self.connected:
-            return
-
-        # Check if the temp is valid for the heatmode
+        # Check if the new temperature is valid for the current heat mode
         if (newtemp < self.tmin[self.temprange][self.tempscale] or
                 newtemp > self.tmax[self.temprange][self.tempscale]):
             self.log.error(
-                "Attempt to set temp outside of boundary of heatmode")
+                "Attempt to set temperature outside of heat mode boundary")
             return
-
-        data = bytearray(8)
-        data[0] = M_START
-        data[1] = 6
-        data[2] = mtypes[BMTS_SET_TEMP][0]
-        data[3] = mtypes[BMTS_SET_TEMP][1]
-        data[4] = mtypes[BMTS_SET_TEMP][2]
 
         if self.tempscale == self.TSCALE_C:
             newtemp *= 2.0
-        val = int(round(newtemp))
-        data[5] = val
-        data[6] = self.balboa_calc_cs(data[1:], 5)
-        data[7] = M_END
 
-        self.writer.write(data)
-        await self.writer.drain()
+        await self.send_message(*mtypes[BMTS_SET_TEMP], int(round(newtemp)))
 
     async def change_light(self, light, newstate):
         """ Change light #light to newstate. """
-        if not self.connected:
+        # sanity check
+        if (light > 1
+                or not self.light_array[light]
+                or self.light_status[light] == newstate):
             return
 
-        # we don't have 3 lights!
-        if light > 1:
-            return
-
-        # we don't have THIS light
-        if not self.light_array[light]:
-            return
-
-        # this is a toggle switch, not on/off
-        if self.light_status[light] == newstate:
-            return
-
-        # Setup the basic things we know
-        data = bytearray(9)
-        data[0] = M_START
-        data[1] = 7
-        data[2] = mtypes[BMTS_CONTROL_REQ][0]
-        data[3] = mtypes[BMTS_CONTROL_REQ][1]
-        data[4] = mtypes[BMTS_CONTROL_REQ][2]
-        data[5] = C_LIGHT1 if light == 0 else C_LIGHT2
-        data[6] = 0x00  # who knows?
-        data[7] = self.balboa_calc_cs(data[1:], 6)
-        data[8] = M_END
-
-        self.writer.write(data)
-        await self.writer.drain()
+        await self.send_message(*mtypes[BMTS_CONTROL_REQ], C_LIGHT1 if light == 0 else C_LIGHT2, 0x00)
 
     async def change_pump(self, pump, newstate):
         """ Change pump #pump to newstate. """
-        if not self.connected:
+        # sanity check
+        if (pump > MAX_PUMPS
+                or newstate > self.pump_array[pump]
+                or self.pump_status[pump] == newstate):
             return
 
-        # we don't have 7 pumps!
-        if pump > MAX_PUMPS:
-            return
-
-        # we don't have THIS pump
-        if not self.pump_array[pump]:
-            return
-
-        # this is a toggle switch, not on/off
-        if self.pump_status[pump] == newstate:
-            return
-
-        # what we know:
-        data = bytearray(9)
-        data[0] = M_START
-        data[1] = 7
-        data[2] = mtypes[BMTS_CONTROL_REQ][0]
-        data[3] = mtypes[BMTS_CONTROL_REQ][1]
-        data[4] = mtypes[BMTS_CONTROL_REQ][2]
-        data[6] = 0x00  # who knows?
-        data[8] = M_END
-
-        # calculate how many times to push the button
-        if self.pump_array[pump] > 1:
-            for iter in range(1, 2+1):
-                if newstate == ((self.pump_status[pump] + iter) % 3):
-                    break
-        else:
-            iter = 1
-
-        # now push the button until we hit desired state
-        for pushes in range(1, iter+1):
-            # 4 is 0, 5 is 2, presume 6 is 3?
-            data[5] = C_PUMP1 + pump
-            data[7] = self.balboa_calc_cs(data[1:], 6)
-            self.writer.write(data)
-            await self.writer.drain()
+        # toggle until we hit the desired state
+        for i in range(0, (newstate-self.pump_status[pump]) % (self.pump_array[pump]+1)):
+            await self.send_message(*mtypes[BMTS_CONTROL_REQ], C_PUMP1 + pump, 0x00)
             await asyncio.sleep(1.0)
 
     async def change_heatmode(self, newmode):
-        """ Change the spa's heatmode to newmode. """
-        if not self.connected:
+        """Change the spa's heat mode.
+
+        A spa cannot be put into Ready in Rest (RNR). It can be in RNR, but you cannot
+        force it into RNR. It's a tri-state, but a binary switch.
+
+        :param newmode: The new heat mode.
+        """
+        # sanity check
+        if (newmode > 2
+                or self.heatmode == newmode
+                or newmode == self.HEATMODE_RNR):  # also can't change mode to Ready in Rest
             return
 
-        # check for sanity
-        if newmode > 2:
-            return
-
-        # this is a toggle switch, not on/off, also RNR can not be set
-        if self.heatmode == newmode or newmode == self.HEATMODE_RNR:
-            return
-
-        # what we know:
-        data = bytearray(9)
-        data[0] = M_START
-        data[1] = 7
-        data[2] = mtypes[BMTS_CONTROL_REQ][0]
-        data[3] = mtypes[BMTS_CONTROL_REQ][1]
-        data[4] = mtypes[BMTS_CONTROL_REQ][2]
-        data[5] = C_HEATMODE
-        data[6] = 0x00  # who knows?
-        data[7] = self.balboa_calc_cs(data[1:], 6)
-        data[8] = M_END
-
-        # You can't put the spa in RNR, it can BE in RNR, but you cannot
-        # force it into RNR. It's a tri-state, but a binary switch.
-
-        # calculate how many times to push the button
-        if newmode == self.HEATMODE_READY:
-            if self.heatmode == self.HEATMODE_RNR: # this will change it to "rest" first
-                self.writer.write(data)
-                await self.writer.drain()
-                await asyncio.sleep(0.5)
-            self.writer.write(data)
-            await self.writer.drain()
+        # if currently in ready in rest and changing to ready, the first toggle
+        # will set the heat mode to rest, so we need to toggle an additional time
+        if (newmode == self.HEATMODE_READY and self.heatmode == self.HEATMODE_RNR):
+            await self.send_message(*mtypes[BMTS_CONTROL_REQ], C_HEATMODE, 0x00)
             await asyncio.sleep(0.5)
 
-        if newmode == self.HEATMODE_REST:
-            self.writer.write(data)
-            await self.writer.drain()
-            await asyncio.sleep(0.5)
+        await self.send_message(*mtypes[BMTS_CONTROL_REQ], C_HEATMODE, 0x00)
+
+    async def change_temperature_unit(self, temperature_unit):
+        """Change the spa's temperature unit.
+
+        :param temperature_unit: The new temperature unit.
+        """
+        # sanity check
+        if (temperature_unit > 1
+                or self.tempscale == temperature_unit):
+            return
+
+        await self.send_message(*mtypes[BMTS_SET_TSCALE], 0x01, temperature_unit)
 
     async def change_temprange(self, newmode):
         """ Change the spa's temprange to newmode. """
-        if not self.connected:
+        # sanity check
+        if (newmode > 1 or self.temprange == newmode):
             return
 
-        # check for sanity
-        if newmode > 1:
-            return
-
-        # this is a toggle switch, not on/off
-        if self.temprange == newmode:
-            return
-
-        # what we know:
-        data = bytearray(9)
-        data[0] = M_START
-        data[1] = 7
-        data[2] = mtypes[BMTS_CONTROL_REQ][0]
-        data[3] = mtypes[BMTS_CONTROL_REQ][1]
-        data[4] = mtypes[BMTS_CONTROL_REQ][2]
-        data[5] = C_TEMPRANGE
-        data[6] = 0x00  # who knows?
-        data[7] = self.balboa_calc_cs(data[1:], 6)
-        data[8] = M_END
-
-        self.writer.write(data)
-        await self.writer.drain()
+        await self.send_message(*mtypes[BMTS_CONTROL_REQ], C_TEMPRANGE, 0x00)
 
     async def change_aux(self, aux, newstate):
         """ Change aux #aux to newstate. """
-        if not self.connected:
+        # sanity check
+        if (aux > 1
+                or not self.aux_array[aux]
+                or self.aux_status[aux] == newstate):
             return
 
-        # we don't have 3 auxs!
-        if aux > 1:
-            return
-
-        # we don't have THIS aux
-        if not self.aux_array[aux]:
-            return
-
-        # this is a toggle switch, not on/off
-        if self.aux_status[aux] == newstate:
-            return
-
-        # Setup the basic things we know
-        data = bytearray(9)
-        data[0] = M_START
-        data[1] = 7
-        data[2] = mtypes[BMTS_CONTROL_REQ][0]
-        data[3] = mtypes[BMTS_CONTROL_REQ][1]
-        data[4] = mtypes[BMTS_CONTROL_REQ][2]
-        data[5] = C_AUX1 if aux == 0 else C_AUX2
-        data[6] = 0x00  # who knows?
-        data[7] = self.balboa_calc_cs(data[1:], 6)
-        data[8] = M_END
-
-        self.writer.write(data)
-        await self.writer.drain()
+        await self.send_message(*mtypes[BMTS_CONTROL_REQ], C_AUX1 if aux == 0 else C_AUX2, 0x00)
 
     async def change_mister(self, newmode):
         """ Change the spa's mister to newmode. """
-        if not self.connected:
+        # sanity check
+        if (newmode > 1 
+                or self.mister == newmode):
             return
 
-        # check for sanity
-        if newmode > 1:
-            return
-
-        # this is a toggle switch, not on/off
-        if self.mister == newmode:
-            return
-
-        # what we know:
-        data = bytearray(9)
-        data[0] = M_START
-        data[1] = 7
-        data[2] = mtypes[BMTS_CONTROL_REQ][0]
-        data[3] = mtypes[BMTS_CONTROL_REQ][1]
-        data[4] = mtypes[BMTS_CONTROL_REQ][2]
-        data[5] = C_MISTER
-        data[6] = 0x00  # who knows?
-        data[7] = self.balboa_calc_cs(data[1:], 6)
-        data[8] = M_END
-
-        self.writer.write(data)
-        await self.writer.drain()
+        await self.send_message(*mtypes[BMTS_CONTROL_REQ], C_MISTER, 0x00)
 
     async def change_blower(self, newstate):
         """ Change blower to newstate. """
-        # this is a 4-mode switch
+        # sanity check
+        if (not self.have_blower()
+                or self.blower_status == newstate
+                or newstate > 3):
+            return
+
+        # toggle until we hit the desired state
+        for i in range(0, ((newstate-self.blower_status) % 4)):
+            await self.send_message(*mtypes[BMTS_CONTROL_REQ], C_BLOWER, 0x00)
+            await asyncio.sleep(0.5)
+
+    async def send_message(self, *bytes):
+        """ Sends a message to the spa with variable length bytes. """
+        # if not connected, we can't send a message
         if not self.connected:
             return
 
-        # this is a toggle switch, not on/off
-        if self.blower_status == newstate:
-            return
+        message_length = len(bytes)+2
+        data = bytearray(message_length+2)
+        data[0] = M_STARTEND
+        data[1] = message_length
+        data[2:message_length] = bytes
+        data[-2] = self.balboa_calc_cs(data[1:message_length],
+                                       message_length-1)
+        data[-1] = M_STARTEND
 
-        # what we know:
-        data = bytearray(9)
-        data[0] = M_START
-        data[1] = 7
-        data[2] = mtypes[BMTS_CONTROL_REQ][0]
-        data[3] = mtypes[BMTS_CONTROL_REQ][1]
-        data[4] = mtypes[BMTS_CONTROL_REQ][2]
-        data[6] = 0x00  # who knows?
-        data[8] = M_END
-
-        # calculate how many times to push the button
-        for iter in range(1, 4+1):
-            if newstate == ((self.blower_status + iter) % 4):
-                break
-
-        # now push the button until we hit desired state
-        for pushes in range(1, iter+1):
-            data[5] = C_BLOWER
-            data[7] = self.balboa_calc_cs(data[1:], 6)
-            self.writer.write(data)
-            await self.writer.drain()
-            await asyncio.sleep(0.5)
+        self.log.info(f'Sending message: {data.hex()}')
+        self.writer.write(data)
+        await self.writer.drain()
 
     def find_balboa_mtype(self, data):
         """ Look at a message and try to figure out what type it was. """
         if len(data) < 5:
             return None
         for i in range(0, NROF_BMT):
-            if (data[2] == mtypes[i][0] and
-                data[3] == mtypes[i][1] and
-                data[4] == mtypes[i][2]):
+            if (data[2] == mtypes[i][0]
+                    and data[3] == mtypes[i][1]
+                    and data[4] == mtypes[i][2]):
                 return i
         return None
 
@@ -839,8 +674,8 @@ class BalboaSpaWifi:
             self.log.error('Spa read failed: {0}'.format(str(e)))
             return None
 
-        if header[0] == M_START:
-            # header[1] is size, + checksum + M_END (we already read 2 tho!)
+        if header[0] == M_STARTEND:
+            # header[1] is size, + checksum + M_STARTEND (we already read 2 tho!)
             rlen = header[1]
         else:
             return None
@@ -853,7 +688,7 @@ class BalboaSpaWifi:
             return None
 
         full_data = header + data
-        # don't count M_START, M_END or CHKSUM (remember that rlen is 2 short)
+        # don't count M_STARTENDs or CHKSUM (remember that rlen is 2 short)
         crc = self.balboa_calc_cs(full_data[1:], rlen-1)
         if crc != full_data[-2]:
             self.log.error('Message had bad CRC, discarding')
@@ -925,11 +760,11 @@ class BalboaSpaWifi:
         Use in conjunction with listen.  First listen, then send some config
         commands to set the spa up.
         """
-        await self.send_mod_ident_req() # request module identification
-        await self.send_panel_req(0, 1) # request device configuration
-        await self.send_panel_req(2, 0) # request system information
-        await self.send_panel_req(4, 0) # request setup parameters
-        await self.send_panel_req(1, 0) # request filter cycle info
+        await self.send_mod_ident_req()  # request module identification
+        await self.send_panel_req(0, 1)  # request device configuration
+        await self.send_panel_req(2, 0)  # request system information
+        await self.send_panel_req(4, 0)  # request setup parameters
+        await self.send_panel_req(1, 0)  # request filter cycle info
         while True:
             if (self.connected
                     and self.config_loaded

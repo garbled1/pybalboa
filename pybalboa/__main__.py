@@ -226,7 +226,7 @@ async def mini_engine(spahost):
     print("Trying to set temperatures")
     print("--------------------------")
     save_my_temp = spa.get_settemp()
-    await temp_play(spa, 100 if spa.tempscale == spa.TSCALE_F else 24)
+    await temp_play(spa, spa.tmax[spa.temprange][spa.tempscale] if spa.settemp != spa.tmax[spa.temprange][spa.tempscale] else spa.tmax[spa.temprange][spa.tempscale] - 2)
     await temp_play(spa, save_my_temp)
     print()
 
@@ -273,7 +273,8 @@ async def pump_play(spa, pump, setting):
             return
         else:
             await asyncio.sleep(i)
-    print(f'  Pump Status was not changed after {i} seconds')
+    print(
+        f'  Pump Status was not changed to {balboa.text_pump[setting]} after {i} seconds')
 
 async def heatmode_play(spa, to_heatmode):
     print(f'Heat Mode: {spa.get_heatmode(True)}')
