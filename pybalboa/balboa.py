@@ -170,7 +170,7 @@ class BalboaSpaWifi:
         self.log = logging.getLogger(__name__)
 
     def to_celsius(self, fahrenheit):
-        return ((fahrenheit - 32) / 1.8) // .5 * .5
+        return .5 * round(((fahrenheit-32) / 1.8) / .5)
 
     def balboa_calc_cs(self, data, length):
         """ Calculate the checksum byte for a balboa message """
