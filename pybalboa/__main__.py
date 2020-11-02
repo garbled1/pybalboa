@@ -2,8 +2,10 @@ try:
     import balboa
 except ImportError:
     import pybalboa as balboa
+
 import asyncio
 import sys
+
 
 def usage():
     print("Usage: {0} <ip/host>".format(sys.argv[0]))
