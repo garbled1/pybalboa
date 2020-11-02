@@ -1,9 +1,9 @@
 import asyncio
-import time
-import logging
-from socket import error as SocketError
 import errno
+import logging
+import time
 import warnings
+from socket import error as SocketError
 
 BALBOA_DEFAULT_PORT = 4257
 
@@ -335,7 +335,7 @@ class BalboaSpaWifi:
     async def change_mister(self, newmode):
         """ Change the spa's mister to newmode. """
         # sanity check
-        if (newmode > 1 
+        if (newmode > 1
                 or self.mister == newmode):
             return
 
@@ -353,6 +353,17 @@ class BalboaSpaWifi:
         for i in range(0, ((newstate-self.blower_status) % 4)):
             await self.send_message(*mtypes[BMTS_CONTROL_REQ], C_BLOWER, 0x00)
             await asyncio.sleep(0.5)
+
+    async def set_time(self, new_time, timescale = None):
+        """ Set time on spa to new_time with optional timescale. """
+        # sanity check
+        if (not isinstance(new_time, time.struct_time)):
+            return
+
+        await self.send_message(*mtypes[BMTS_SET_TIME],
+                                ((self.timescale if timescale is None else timescale)
+                                 << 7) + new_time.tm_hour,
+                                new_time.tm_min)
 
     async def send_message(self, *bytes):
         """ Sends a message to the spa with variable length bytes. """
@@ -398,7 +409,7 @@ class BalboaSpaWifi:
         1a 0a bf 24 64 dc 14 00 42 50 32 30 30 30 47 31 04 51 80 0c 6b 01 0a 02 00 f9
         Bullfrog Stil7 / BWGWIFI1:
         1A 0A BF 24 64 DC 24 00 42 46 42 50 32 30 53 20 03 5C D4 CC D7 01 0A 00 00 DE
-        
+
         SSID = "M100_220 V20.0" so "M[I0]_[I1] V[V0].[V1]"
         V0.V1 = Software Vers (ex 20.0)
         T1-T8 = model name in ascii
@@ -433,7 +444,7 @@ class BalboaSpaWifi:
         ML AD PF PT 05 06 LL LH HL HH 11 12 13 CB
         Bullfrog Stil7 / BWGWIFI1:
         0E 0A BF 25 04 03 32 63 50 68 E9 01 45 4F
-        
+
         05-06 - unknown
         07 = LL (low low) low range temperature's minimum
         08 - LH (low high) low range temperature's maximum
