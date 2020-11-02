@@ -212,6 +212,7 @@ class BalboaSpaWifi:
         if not self.writer._loop.is_closed():
             self.writer.close()
             await self.writer.wait_closed()
+        await self.int_new_data_cb()
 
     async def int_new_data_cb(self):
         """ Internal new data callback.
@@ -670,6 +671,7 @@ class BalboaSpaWifi:
             else:
                 self.log.error('Spa socket error: {0}'.format(str(err)))
             self.connected = False
+            await self.int_new_data_cb()
             return None
         except Exception as e:
             self.log.error('Spa read failed: {0}'.format(str(e)))
@@ -720,14 +722,15 @@ class BalboaSpaWifi:
                 # sleep and hope the checker fixes us
                 await asyncio.sleep(5)
                 continue
+
             data = await self.read_one_message()
             if data is None:
                 await asyncio.sleep(1)
                 continue
-            mtype = self.find_balboa_mtype(data)
 
+            mtype = self.find_balboa_mtype(data)
             if mtype is None:
-                self.log.error("Spa sent an unknown message type.")
+                self.log.error("Spa sent an unknown message: {0}".format(data))
                 await asyncio.sleep(0.1)
                 continue
             if mtype == BMTR_MOD_IDENT_RESP:
