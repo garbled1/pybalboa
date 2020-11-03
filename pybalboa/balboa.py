@@ -741,7 +741,7 @@ class BalboaSpaWifi:
 
             mtype = self.find_balboa_mtype(data)
             if mtype is None:
-                self.log.error(f"Spa sent an unknown message: {data:x}")
+                self.log.error(f"Spa sent an unknown message: {data.hex()}")
                 await asyncio.sleep(0.1)
                 continue
             if mtype == BMTR_MOD_IDENT_RESP:
@@ -804,7 +804,7 @@ class BalboaSpaWifi:
             mtype = self.find_balboa_mtype(data)
 
             if mtype is None:
-                self.log.error(f"Spa sent an unknown message: {data:x}")
+                self.log.error(f"Spa sent an unknown message: {data.hex()}")
                 await asyncio.sleep(0.1)
                 continue
             if mtype == BMTR_MOD_IDENT_RESP:
