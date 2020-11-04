@@ -380,9 +380,12 @@ class BalboaSpaWifi:
                                        message_length-1)
         data[-1] = M_STARTEND
 
-        self.log.info(f'Sending message: {data.hex()}')
-        self.writer.write(data)
-        await self.writer.drain()
+        self.log.debug(f'Sending message: {data.hex()}')
+        try:
+            self.writer.write(data)
+            await self.writer.drain()
+        except Exception as e:
+            self.log.error(f'Error sending message: {e}')
 
     def find_balboa_mtype(self, data):
         """ Look at a message and try to figure out what type it was. """
