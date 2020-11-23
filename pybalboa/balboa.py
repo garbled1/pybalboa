@@ -70,6 +70,22 @@ text_blower = ["Off", "Low", "Medium", "High"]
 text_switch = ["Off", "On"]
 text_filter = ["Off", "Cycle 1", "Cycle 2", "Cycle 1 and 2"]
 
+"""	
+The CRC is annoying.  Doing CRC's in python is even more annoying than it	
+should be.  I hate it.	
+ * Generated on Sun Apr  2 10:09:58 2017,	
+ * by pycrc v0.9, https://pycrc.org	
+ * using the configuration:	
+ *    Width         = 8	
+ *    Poly          = 0x07	
+ *    Xor_In        = 0x02	
+ *    ReflectIn     = False	
+ *    Xor_Out       = 0x02	
+ *    ReflectOut    = False	
+ *    Algorithm     = bit-by-bit	
+https://github.com/garbled1/gnhast/blob/master/balboacoll/collector.c	
+"""
+
 
 class BalboaSpaWifi:
     def __init__(self, hostname, port=BALBOA_DEFAULT_PORT):
@@ -354,7 +370,7 @@ class BalboaSpaWifi:
             await self.send_message(*mtypes[BMTS_CONTROL_REQ], C_BLOWER, 0x00)
             await asyncio.sleep(0.5)
 
-    async def set_time(self, new_time, timescale = None):
+    async def set_time(self, new_time, timescale=None):
         """ Set time on spa to new_time with optional timescale. """
         # sanity check
         if (not isinstance(new_time, time.struct_time)):
