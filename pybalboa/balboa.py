@@ -474,10 +474,14 @@ class BalboaSpaWifi:
         13 - unknown
         """
 
+        # store low range min and max temperatures as [°F, °C]
         self.tmin[0] = [data[7], self.to_celsius(data[7])]
         self.tmax[0] = [data[8], self.to_celsius(data[8])]
+
+        # store high range min and max temperatures as [°F, °C]
         self.tmin[1] = [data[9], self.to_celsius(data[9])]
         self.tmax[1] = [data[10], self.to_celsius(data[10])]
+
         self.nr_of_pumps = (data[12] & 1)\
             + (data[12] >> 1 & 1)\
             + (data[12] >> 2 & 1)\
