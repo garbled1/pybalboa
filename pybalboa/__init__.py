@@ -1,13 +1,13 @@
 """ Nothing to see here """
 import sys
 
-__version__ = "0.3"
+__version__ = "0.4"
 
 __uri__ = 'https://github.com/garbled1/pybalboa'
 __title__ = "pybalboa"
 __description__ = 'Interface Library for Balboa Spa'
 __doc__ = __description__ + " <" + __uri__ + ">"
-__author__ = 'Tim Rightnour'
+__author__ = 'Tim Rightnour, Nathan Spencer'
 __email__ = 'root@garbled.net'
 __license__ = "Apache 2.0"
 
