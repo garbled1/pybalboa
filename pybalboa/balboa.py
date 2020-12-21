@@ -393,6 +393,64 @@ class BalboaSpaWifi:
             new_time.tm_min,
         )
 
+    async def change_filter_cycle(
+        self,
+        filter1_hour: int = None,
+        filter1_minute: int = None,
+        filter1_duration_hours: int = None,
+        filter1_duration_minutes: int = None,
+        filter2_enabled: bool = None,
+        filter2_hour: int = None,
+        filter2_minute: int = None,
+        filter2_duration_hours: int = None,
+        filter2_duration_minutes: int = None,
+    ):
+        """Change filter cycle."""
+        # sanity check
+        if not any(
+            param is not None
+            for param in [
+                filter1_hour,
+                filter1_minute,
+                filter1_duration_hours,
+                filter1_duration_minutes,
+                filter2_enabled,
+                filter2_hour,
+                filter2_minute,
+                filter2_duration_hours,
+                filter2_duration_minutes,
+            ]
+        ):
+            return
+
+        await self.send_message(
+            *mtypes[BMTR_FILTER_INFO_RESP],
+            filter1_hour if filter1_hour is not None else self.filter1_hour,
+            filter1_minute if filter1_minute is not None else self.filter1_minute,
+            filter1_duration_hours
+            if filter1_duration_hours is not None
+            else self.filter1_duration_hours,
+            filter1_duration_minutes
+            if filter1_duration_minutes is not None
+            else self.filter1_duration_minutes,
+            (
+                (
+                    int(filter2_enabled)
+                    if filter2_enabled is not None
+                    else self.filter2_enabled
+                )
+                << 7
+            )
+            + (filter2_hour if filter2_hour is not None else self.filter2_hour),
+            filter2_minute if filter2_minute is not None else self.filter2_minute,
+            filter2_duration_hours
+            if filter2_duration_hours is not None
+            else self.filter2_duration_hours,
+            filter2_duration_minutes
+            if filter2_duration_minutes is not None
+            else self.filter2_duration_minutes,
+        )
+
     async def send_message(self, *bytes):
         """ Sends a message to the spa with variable length bytes. """
         # if not connected, we can't send a message
