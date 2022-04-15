@@ -299,13 +299,20 @@ if __name__ == "__main__":
         usage()
         exit(1)
 
-    print("******* Testing CRC **********")
-    test_crc()
+    #print("******* Testing CRC **********")
+    #test_crc()
 
-    print("******** Testing basic commands **********")
-    asyncio.run(connect_and_listen(sys.argv[1]))
+    #print("******** Testing basic commands **********")
+    #asyncio.run(connect_and_listen(sys.argv[1]))
 
-    print("******** Testing engine ***********")
-    asyncio.run(mini_engine(sys.argv[1]))
+    #print("******** Testing engine ***********")
+    #asyncio.run(mini_engine(sys.argv[1]))
 
-    exit(0)
+    """ Test a miniature engine of talking to the spa."""
+    spa = balboa.BalboaSpaWifi("192.168.50.53", 8899, True)
+    await spa.connect()
+
+    asyncio.ensure_future(spa.listen())
+    asyncio.get_event_loop().run_forever()
+
+
