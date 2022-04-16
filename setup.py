@@ -7,7 +7,7 @@ def readme():
 
 
 setup(name='pybalboa',
-      version='0.13',
+      version='0.99',
       description='Module to communicate with a Balboa spa wifi adapter',
       long_description='Module to communicate with a Balboa spa wifi adapter',
       url='https://github.com/garbled1/pybalboa',
