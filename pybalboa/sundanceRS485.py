@@ -255,6 +255,9 @@ class SundanceRS485(balboa.BalboaSpaWifi):
 
         if not have_new_data:
              return
+        self.log.info("x{}".format(data))
+        
+        
         self.lastupd = time.time()
         # populate prior_status
         for i in range(0, len(data)):

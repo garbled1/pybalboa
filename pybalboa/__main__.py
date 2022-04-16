@@ -37,7 +37,10 @@ async def newFormatTest():
     await spa.connect()
 
     asyncio.ensure_future(spa.listen())
-
+    lastupd = 0
+    for i in range(0, 9999999999):
+         lastupd = await ReadR(spa, lastupd)     
+    return
 
     print('Pump Array: {0}'.format(str(spa.pump_array)))
     print('Light Array: {0}'.format(str(spa.light_array)))
@@ -56,6 +59,8 @@ async def newFormatTest():
     print("Filter Mode: {0}".format(spa.get_filtermode(True)))               
     lastupd = 0
    
+   
+   
     for i in range(0, 10):
          lastupd = await ReadR(spa, lastupd)
     await spa.change_pump(1, spa.PUMP_LOW)
@@ -68,8 +73,8 @@ async def newFormatTest():
     for i in range(0, 10):
          lastupd = await ReadR(spa, lastupd)
     await spa.send_temp_change(97)
-    for i in range(0, 30):
-         lastupd = await ReadR(spa, lastupd)        
+    for i in range(0, 9999999999):
+         lastupd = await ReadR(spa, lastupd)     
         
 
 if __name__ == "__main__":
