@@ -58,12 +58,12 @@ async def newFormatTest():
    
     for i in range(0, 10):
          lastupd = await ReadR(spa, lastupd)
-    #await spa.change_pump(1, spa.PUMP_LOW)
-    #for i in range(0, 10):
-    #     lastupd = await ReadR(spa, lastupd)
-    #await spa.change_pump(1, spa.PUMP_OFF)
-    #for i in range(0, 10):
-    #     lastupd = await ReadR(spa, lastupd)
+    await spa.change_pump(1, spa.PUMP_LOW)
+    for i in range(0, 10):
+         lastupd = await ReadR(spa, lastupd)
+    await spa.change_pump(1, spa.PUMP_OFF)
+    for i in range(0, 10):
+         lastupd = await ReadR(spa, lastupd)
     await spa.send_temp_change(103)
     for i in range(0, 10):
          lastupd = await ReadR(spa, lastupd)

@@ -38,7 +38,6 @@ class SundanceRS485(balboa.BalboaSpaWifi):
         self.config_loaded = True
         self.pump_array = [1, 1, 1, 0, 0, 0]
         self.nr_of_pumps = 3
-        self.light_array = [1, 1]
         self.circ_pump = 1
         self.aux_array = [1, 1]
         self.tempscale = self.TSCALE_F
@@ -47,8 +46,8 @@ class SundanceRS485(balboa.BalboaSpaWifi):
         self.discoveredChannels = []
         self.activeChannels = []
         self.detectChannelState = DETECT_CHANNEL_STATE_START
-        self.settemp  = 0
-        self.targetTemp = 0
+        self.target_pump_status  = [-1, -1, -1, -1, -1, -1]
+        self.targetTemp = -1
         self.checkCounter = 0
 
  
@@ -110,13 +109,9 @@ class SundanceRS485(balboa.BalboaSpaWifi):
             or self.pump_status[pump] == newstate
         ):
             return
-            
-        if pump == 0:
-            await self.send_CCmessage(228) #Pump 1 Button
-        elif pump == 1: 
-            await self.send_CCmessage(229) #Pump 2 Button
-        else:
-            await self.send_CCmessage(239) #Clear Ray / Circulating Pump
+        
+        self.target_pump_status[pump] = newstate
+        
 
     async def send_CCmessage(self, val):
         """ Sends a message to the spa with variable length bytes. """    
@@ -215,7 +210,19 @@ class SundanceRS485(balboa.BalboaSpaWifi):
         
         settemp = float(data[8])
         self.settemp = settemp / (2 if self.tempscale == self.TSCALE_C else 1)
-        
+              
+        self.heatstate = (data[2] >> 5) & 1
+
+        self.pump_status[0] = (data[2] >> 4) & 1
+        self.pump_status[1] = (data[1] >> 2) & 1
+        self.pump_status[2] = circ
+        self.circ_pump_status = circ
+
+        self.aux_status[0] = clearray1
+        self.aux_status[1] = clearray2
+
+        #FIND OUT IF OUR LAST COMMAND WORKED...
+        sendCmd = False
         if(self.settemp  != self.targetTemp and self.targetTemp > 0 and self.checkCounter > 2):
             if self.targetTemp < self.settemp:
                 await self.send_CCmessage(226) #Temp Down Key
@@ -225,17 +232,26 @@ class SundanceRS485(balboa.BalboaSpaWifi):
         elif self.settemp  == self.targetTemp:
             self.targetTemp = 0
         else: 
+            sendCmd = True
+            
+
+        for i in range(0,len(self.target_pump_status)):
+            if self.pump_status[i] != self.target_pump_status[i] and self.target_pump_status[i] >= 0:
+                if self.checkCounter > 2:
+                    if i == 0:
+                        await self.send_CCmessage(228) #Pump 1 Button
+                    elif i == 1: 
+                        await self.send_CCmessage(229) #Pump 2 Button
+                    else:
+                        await self.send_CCmessage(239) #Clear Ray / Circulating Pump
+                    self.checkCounter = 0
+            elif self.pump_status[i] == self.target_pump_status[i]:
+                self.target_pump_status[i] = -1
+            else:
+                sendCmd = True
+                
+        if sendCmd:
             self.checkCounter += 1
-            
-            
-        self.heatstate = (data[2] >> 5) & 1
-
-        self.pump_status[0] = (data[2] >> 4) & 1
-        self.pump_status[1] = (data[1] >> 2) & 1
-        self.circ_pump_status = circ
-
-        self.aux_status[0] = clearray1
-        self.aux_status[1] = clearray2
 
         if not have_new_data:
              return
