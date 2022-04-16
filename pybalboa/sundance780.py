@@ -47,6 +47,9 @@ class SundanceRS485(balboa.BalboaSpaWifi):
         self.discoveredChannels = []
         self.activeChannels = []
         self.detectChannelState = DETECT_CHANNEL_STATE_START
+        self.settemp  = 0
+        self.targetTemp = 0
+        self.checkCounter = 0
 
  
     async def connect(self):
@@ -79,16 +82,8 @@ class SundanceRS485(balboa.BalboaSpaWifi):
             self.log.error("Attempt to set temperature outside of heat mode boundary")
             return
   
-        diff = newtemp - self.settemp 
-        if self.tempscale == self.TSCALE_C:
-               diff = diff *2
-        print(diff)
-        for i in range(0, abs(int(diff))):
-            if diff < 0:
-                await self.send_CCmessage(226) #Temp Down Key
-            else:
-                await self.send_CCmessage(225) #Temp Up Key
-        self.settemp = newtemp
+        self.targetTemp = newtemp
+
 
     async def change_light(self, light, newstate):
         """ Change light #light to newstate. """
@@ -196,8 +191,7 @@ class SundanceRS485(balboa.BalboaSpaWifi):
             have_new_data = True
             self.prior_status = bytearray(len(data))
 
-        if not have_new_data:
-            return
+
 
         self.time_hour = data[0]^6
         self.time_minute = data[11]
@@ -221,7 +215,19 @@ class SundanceRS485(balboa.BalboaSpaWifi):
         
         settemp = float(data[8])
         self.settemp = settemp / (2 if self.tempscale == self.TSCALE_C else 1)
-
+        
+        if(self.settemp  != self.targetTemp and self.targetTemp > 0 and self.checkCounter > 2):
+            if self.targetTemp < self.settemp:
+                await self.send_CCmessage(226) #Temp Down Key
+            else:
+                await self.send_CCmessage(225) #Temp Up Key
+            self.checkCounter = 0
+        elif self.settemp  == self.targetTemp:
+            self.targetTemp = 0
+        else: 
+            self.checkCounter += 1
+            
+            
         self.heatstate = (data[2] >> 5) & 1
 
         self.pump_status[0] = (data[2] >> 4) & 1
@@ -231,6 +237,8 @@ class SundanceRS485(balboa.BalboaSpaWifi):
         self.aux_status[0] = clearray1
         self.aux_status[1] = clearray2
 
+        if not have_new_data:
+             return
         self.lastupd = time.time()
         # populate prior_status
         for i in range(0, len(data)):
@@ -306,7 +314,6 @@ class SundanceRS485(balboa.BalboaSpaWifi):
             elif mtype == CHANNEL_ASSIGNMENT_RESPONCE:
                 #TODO check for magic numbers to be repeated back
                 await setMyChan(data[5])
-
                 message_length = 5
                 data = bytearray(7)
                 data[0] = M_STARTEND

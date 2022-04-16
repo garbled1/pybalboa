@@ -68,10 +68,9 @@ async def newFormatTest():
     for i in range(0, 10):
          lastupd = await ReadR(spa, lastupd)
     await spa.send_temp_change(97)
-    for i in range(0, 10):
+    for i in range(0, 30):
          lastupd = await ReadR(spa, lastupd)        
         
-    await asyncio.sleep(5)
 
 if __name__ == "__main__":
     
