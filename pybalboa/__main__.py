@@ -294,6 +294,33 @@ async def heatmode_play(spa, to_heatmode):
             await asyncio.sleep(i)
     print(f'  Heat Mode was not changed after {i} seconds')
 
+
+async def ReadR(spa, lastupd):
+        await asyncio.sleep(1)
+        if spa.lastupd != lastupd:
+            lastupd = spa.lastupd
+            print("New data as of {0}".format(spa.lastupd))
+            print("Current Temp: {0}".format(spa.curtemp))
+ 
+            print("Set Temp: {0}".format(spa.get_settemp()))
+
+            print("Heat State: {0}".format(spa.get_heatstate(True)))
+
+            print("Pump Status: {0}".format(str(spa.pump_status)))
+            print("Circulation Pump: {0}".format(spa.get_circ_pump(True)))
+            print("Light Status: {0}".format(str(spa.light_status)))
+
+            print("Aux Status: {0}".format(str(spa.aux_status)))
+
+            print("Spa Time: {0:02d}:{1:02d} {2}".format(
+                spa.time_hour,
+                spa.time_minute,
+                spa.get_timescale(True)
+            ))
+
+            print()
+        return lastupd
+
 async def newFormatTest():
     """ Test a miniature engine of talking to the spa."""
     spa = balboa.BalboaSpaWifi("192.168.50.53", 8899, True)
@@ -311,90 +338,29 @@ async def newFormatTest():
     print("Min Temps: {0}".format(spa.tmin))
     print("Max Temps: {0}".format(spa.tmax))
     print("Nr of pumps: {0}".format(spa.nr_of_pumps))
-    
+    print("Tempscale: {0}".format(spa.get_tempscale(text=True)))
+    print("Heat Mode: {0}".format(spa.get_heatmode(True)))
+    print("Temp Range: {0}".format(spa.get_temprange(True)))
+    print("Blower Status: {0}".format(spa.get_blower(True)))
+    print("Mister Status: {0}".format(spa.get_mister(True)))  
+    print("Filter Mode: {0}".format(spa.get_filtermode(True)))               
     lastupd = 0
+   
     for i in range(0, 10):
-        await asyncio.sleep(1)
-        if spa.lastupd != lastupd:
-            lastupd = spa.lastupd
-            print("New data as of {0}".format(spa.lastupd))
-            print("Current Temp: {0}".format(spa.curtemp))
-            print("Tempscale: {0}".format(spa.get_tempscale(text=True)))
-            print("Set Temp: {0}".format(spa.get_settemp()))
-            print("Heat Mode: {0}".format(spa.get_heatmode(True)))
-            print("Heat State: {0}".format(spa.get_heatstate(True)))
-            print("Temp Range: {0}".format(spa.get_temprange(True)))
-            print("Pump Status: {0}".format(str(spa.pump_status)))
-            print("Circulation Pump: {0}".format(spa.get_circ_pump(True)))
-            print("Light Status: {0}".format(str(spa.light_status)))
-            print("Mister Status: {0}".format(spa.get_mister(True)))
-            print("Aux Status: {0}".format(str(spa.aux_status)))
-            print("Blower Status: {0}".format(spa.get_blower(True)))
-            print("Spa Time: {0:02d}:{1:02d} {2}".format(
-                spa.time_hour,
-                spa.time_minute,
-                spa.get_timescale(True)
-            ))
-            print("Filter Mode: {0}".format(spa.get_filtermode(True)))
-            print()
-            
-    await spa.change_pump(1, spa.PUMP_LOW)
-
-    lastupd = 0
+         lastupd = await ReadR(spa, lastupd)
+    #await spa.change_pump(1, spa.PUMP_LOW)
+    #for i in range(0, 10):
+    #     lastupd = await ReadR(spa, lastupd)
+    #await spa.change_pump(1, spa.PUMP_OFF)
+    #for i in range(0, 10):
+    #     lastupd = await ReadR(spa, lastupd)
+    await spa.send_temp_change(103)
     for i in range(0, 10):
-        await asyncio.sleep(1)
-        if spa.lastupd != lastupd:
-            lastupd = spa.lastupd
-            print("New data as of {0}".format(spa.lastupd))
-            print("Current Temp: {0}".format(spa.curtemp))
-            print("Tempscale: {0}".format(spa.get_tempscale(text=True)))
-            print("Set Temp: {0}".format(spa.get_settemp()))
-            print("Heat Mode: {0}".format(spa.get_heatmode(True)))
-            print("Heat State: {0}".format(spa.get_heatstate(True)))
-            print("Temp Range: {0}".format(spa.get_temprange(True)))
-            print("Pump Status: {0}".format(str(spa.pump_status)))
-            print("Circulation Pump: {0}".format(spa.get_circ_pump(True)))
-            print("Light Status: {0}".format(str(spa.light_status)))
-            print("Mister Status: {0}".format(spa.get_mister(True)))
-            print("Aux Status: {0}".format(str(spa.aux_status)))
-            print("Blower Status: {0}".format(spa.get_blower(True)))
-            print("Spa Time: {0:02d}:{1:02d} {2}".format(
-                spa.time_hour,
-                spa.time_minute,
-                spa.get_timescale(True)
-            ))
-            print("Filter Mode: {0}".format(spa.get_filtermode(True)))
-            print()
-            
-    await spa.change_pump(1, spa.PUMP_OFF)
-
-    lastupd = 0
+         lastupd = await ReadR(spa, lastupd)
+    await spa.send_temp_change(97)
     for i in range(0, 10):
-        await asyncio.sleep(1)
-        if spa.lastupd != lastupd:
-            lastupd = spa.lastupd
-            print("New data as of {0}".format(spa.lastupd))
-            print("Current Temp: {0}".format(spa.curtemp))
-            print("Tempscale: {0}".format(spa.get_tempscale(text=True)))
-            print("Set Temp: {0}".format(spa.get_settemp()))
-            print("Heat Mode: {0}".format(spa.get_heatmode(True)))
-            print("Heat State: {0}".format(spa.get_heatstate(True)))
-            print("Temp Range: {0}".format(spa.get_temprange(True)))
-            print("Pump Status: {0}".format(str(spa.pump_status)))
-            print("Circulation Pump: {0}".format(spa.get_circ_pump(True)))
-            print("Light Status: {0}".format(str(spa.light_status)))
-            print("Mister Status: {0}".format(spa.get_mister(True)))
-            print("Aux Status: {0}".format(str(spa.aux_status)))
-            print("Blower Status: {0}".format(spa.get_blower(True)))
-            print("Spa Time: {0:02d}:{1:02d} {2}".format(
-                spa.time_hour,
-                spa.time_minute,
-                spa.get_timescale(True)
-            ))
-            print("Filter Mode: {0}".format(spa.get_filtermode(True)))
-            print()
-            
-
+         lastupd = await ReadR(spa, lastupd)        
+        
     await asyncio.sleep(5)
 
 if __name__ == "__main__":

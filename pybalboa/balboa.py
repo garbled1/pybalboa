@@ -4,6 +4,7 @@ import logging
 import time
 import warnings
 import queue
+import socket
 from socket import error as SocketError
 
 BALBOA_DEFAULT_PORT = 4257
@@ -214,10 +215,7 @@ class BalboaSpaWifi:
         self.queue = queue.Queue()
         self.channel = None
         self.newFormat = newFormat
-        if self.newFormat:
-
-        
-        
+        if self.newFormat:        
             self.config_loaded = True
             self.pump_array = [1, 1, 1, 0, 0, 0]
             self.nr_of_pumps = 3
@@ -304,6 +302,9 @@ class BalboaSpaWifi:
             self.log.error(f"Error connecting to spa at {self.host}:{self.port}: {e}")
             return False
         self.connected = True
+        sock = self.writer.transport.get_extra_info('socket')
+        print(str(sock))
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         return True
 
     async def disconnect(self):
@@ -319,7 +320,6 @@ class BalboaSpaWifi:
         """Internal new data callback.
         Binds to self.new_data_cb()
         """
-
         if self.new_data_cb is None:
             return
         else:
@@ -356,18 +356,22 @@ class BalboaSpaWifi:
             self.log.error("Attempt to set temperature outside of heat mode boundary")
             return
 
-        if self.tempscale == self.TSCALE_C:
-            newtemp *= 2.0
+
 
         if self.newFormat:
             diff = newtemp - self.settemp 
-            for i in range(1, abs(diff)):
+            if self.tempscale == self.TSCALE_C:
+                   diff = diff *2
+            print(diff)
+            for i in range(-1, abs(int(diff))):
                 if diff < 0:
                     await self.send_CCmessage(226) #Temp Down Key
                 else:
                     await self.send_CCmessage(225) #Temp Up Key
             self.settemp = newtemp
         else:
+            if self.tempscale == self.TSCALE_C:
+                newtemp *= 2.0
             await self.send_message(*mtypes[BMTS_SET_TEMP], int(round(newtemp)))
 
     async def change_light(self, light, newstate):
@@ -393,6 +397,7 @@ class BalboaSpaWifi:
     async def change_pump(self, pump, newstate):
         """ Change pump #pump to newstate. """
         # sanity check
+        print("{} {}".format(self.pump_status[pump] , newstate))
         if (
             pump > MAX_PUMPS
             or newstate > self.pump_array[pump]
@@ -1158,6 +1163,7 @@ class BalboaSpaWifi:
                         self.NTS[8] = M_STARTEND
                         
                 elif mtype == BMTR_NEW_EXISTING_CLIENT_REQ:
+                        print("Existing Client")
                         message_length = 8
                         data = bytearray(9)
                         data[0] = M_STARTEND
@@ -1180,6 +1186,7 @@ class BalboaSpaWifi:
                             msg = self.queue.get()
                             self.writer.write(msg)
                             await self.writer.drain()
+                            print("sent")
                 else:
                     if (data[4] > 7) and (data[4] != 0xCC):
                         self.log.warn("Unknown Message x{}".format(data))
