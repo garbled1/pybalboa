@@ -208,11 +208,16 @@ class BalboaSpaWifi:
         self.filter2_minute = 0
         self.filter2_duration_hours = 0
         self.filter2_duration_minutes = 0
+        logging.basicConfig()
         self.log = logging.getLogger(__name__)
+        self.log.setLevel(logging.DEBUG)
         self.queue = queue.Queue()
         self.channel = None
         self.newFormat = newFormat
-        if self.newFomrat:
+        if self.newFormat:
+
+        
+        
             self.config_loaded = True
             self.pump_array = [1, 1, 1, 0, 0, 0]
             self.nr_of_pumps = 3
@@ -228,7 +233,7 @@ class BalboaSpaWifi:
             self.settemp = 0.0
             self.heatmode = 0
             self.heatstate = 0
-            self.temprange = 0
+            self.temprange = 1
             self.pump_status = [0, 0, 0, 0, 0, 0]
             self.circ_pump_status = 0
             self.light_status = [0, 0]
@@ -299,7 +304,6 @@ class BalboaSpaWifi:
             self.log.error(f"Error connecting to spa at {self.host}:{self.port}: {e}")
             return False
         self.connected = True
-           
         return True
 
     async def disconnect(self):
@@ -357,10 +361,10 @@ class BalboaSpaWifi:
 
         if self.newFormat:
             diff = newtemp - self.settemp 
-            for i in range(1, abs(diff))
+            for i in range(1, abs(diff)):
                 if diff < 0:
                     await self.send_CCmessage(226) #Temp Down Key
-                else 
+                else:
                     await self.send_CCmessage(225) #Temp Up Key
             self.settemp = newtemp
         else:
@@ -377,7 +381,7 @@ class BalboaSpaWifi:
             return
 
         if self.newFormat:
-            if (light = 0)
+            if light == 0:
                 await self.send_CCmessage(241) #Lights Brightness Button
             else: 
                 await self.send_CCmessage(241) #Lights Color Button
@@ -398,9 +402,9 @@ class BalboaSpaWifi:
 
         
         if self.newFormat:
-            if (pump = 0)
+            if pump == 0:
                 await self.send_CCmessage(228) #Pump 1 Button
-            elif (pump = 1: 
+            elif pump == 1: 
                 await self.send_CCmessage(229) #Pump 2 Button
             else:
                 await self.send_CCmessage(239) #Clear Ray / Circulating Pump
@@ -553,7 +557,7 @@ class BalboaSpaWifi:
             else self.filter2_duration_minutes,
         )
 
-    async def send_CCmessage(self, data):
+    async def send_CCmessage(self, val):
         """ Sends a message to the spa with variable length bytes. """
         if not self.newFormat:
             self.log.info("CC Message Not supported with Old Format messaging")
@@ -565,7 +569,7 @@ class BalboaSpaWifi:
             return
 
         # if we dont have a channel number yet, we cant form a message
-        if self.channel = None:
+        if self.channel is None:
             self.log.info("Tried to send CC message without having been assigned a channel")
             return
             
@@ -577,7 +581,7 @@ class BalboaSpaWifi:
         data[2] = self.channel
         data[3] = 0xBF
         data[4] = 0xCC
-        data[5] = data
+        data[5] = val
         data[6] = 0
         data[7] = self.balboa_calc_cs(data[1:message_length], message_length - 1)
         data[8] = M_STARTEND
@@ -914,7 +918,6 @@ class BalboaSpaWifi:
 
 
     def xormsg(self, data):
-        data = msg.arguments
         lst = []
         for i in range(0,len(data)-1,2):
                 c = data[i]^data[i+1]^1
@@ -927,12 +930,18 @@ class BalboaSpaWifi:
         7E 26 FF AF C4 AE A7 AA AB A4 A1 C9 5D A5 A1 C2 A1 9C BD CE BB E2 B9 BB AD B4 B5 A7 B7 DF B1 B2 9B D3 8D 8E 8F 88 F9 7E
         """
         
+        #print ("".join(map("{:02X} ".format, bytes(data))))
+
+        
         #"Decrypt" the message
-        data = xormsg(data)
+        data = self.xormsg(data[5:len(data)-2])
+
+        #print ("x{}".format(data))
+
 
         """Parse a status update from the spa.
         01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29
-        TODO Example after decryption
+        [9, 0, 5, 148, 5, 99, 32, 124, 96, 23, 0, 33, 110, 39, 96, 0]
         """
 
         # Check if the spa had anything new to say.
@@ -946,13 +955,13 @@ class BalboaSpaWifi:
                     break
         else:
             have_new_data = True
-            self.prior_status = bytearray(31)
+            self.prior_status = bytearray(len(data))
 
         if not have_new_data:
             return
 
         self.time_hour = data[0]^6
-        self.time_minute = data11]
+        self.time_minute = data[11]
 
         circ = (data[1]>> 6) & 1
         clearray1 = (data[1] >> 5) & 1 # MIGHT BE SWAPPED WITH CIRC PUMP?
@@ -969,9 +978,9 @@ class BalboaSpaWifi:
         )
         
         #Not doing anything with temp 2 yet..
-        t2 = lst[5]   #Might need ot xor bit 2? 
+        t2 = data[5]   #Might need ot xor bit 2? 
         
-        settemp = float(data[8]])
+        settemp = float(data[8])
         self.settemp = settemp / (2 if self.tempscale == self.TSCALE_C else 1)
 
         self.heatstate = (data[2] >> 5) & 1
@@ -985,17 +994,17 @@ class BalboaSpaWifi:
 
         self.lastupd = time.time()
         # populate prior_status
-        for i in range(0, 31):
+        for i in range(0, len(data)):
             self.prior_status[i] = data[i]
         await self.int_new_data_cb()
 
     async def parse_CA_light_status_update(self, data):
-         """Parse a status update from the spa.
+        """Parse a status update from the spa.
         01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29
         7E 22 FF AF CA 8A 36 CA CB C4 C5 C6 FB C0 C1 C2 3C DC DD DE DF D8 D9 DA DB D4 D5 D6 D7 D0 D1 D2 D3 EC E5 7E 
         """
         #"Decrypt" the message
-        data = xormsg(data)
+        data = self.xormsg(data)
         
         """Parse a status update from the spa.
         01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29
@@ -1078,10 +1087,11 @@ class BalboaSpaWifi:
                 continue
 
             mtype = self.find_balboa_mtype(data)
-            if mtype is None:
-                self.log.error(f"Spa sent an unknown message: {data.hex()}")
-             
-            if self.newFormat:
+
+            if not self.newFormat:
+                if mtype is None:
+                    self.log.error(f"Spa sent an unknown message: {data.hex()}")
+                    
                 if mtype == BMTR_MOD_IDENT_RESP:
                     self.parse_module_identification(data)
                 elif mtype == BMTR_STATUS_UPDATE:
@@ -1097,11 +1107,11 @@ class BalboaSpaWifi:
                 else:
                     self.log.error("Unhandled mtype {0}".format(mtype))            
              
-            else:                             
+            else:
                 if mtype == BMTR_NEW_STATUS_UPDATE:
-                    self.parse_C4status_update(data)
+                    await self.parse_C4status_update(data)
                 elif mtype == BMTR_NEW_LIGHTS_UPDATE:
-                    self.parse_CA_light_status_update(data)
+                    await self.parse_CA_light_status_update(data)
                 elif mtype == BMTR_NEW_NEW_CLIENT_CLEAR_TO_SEND:
                     if self.channel  is None:
                         message_length = 8
@@ -1116,21 +1126,37 @@ class BalboaSpaWifi:
                         data[7] = 0x73
                         data[8] = self.balboa_calc_cs(data[1:message_length], message_length - 1)
                         data[9] = M_STARTEND
-                        self.writer.write(data)                     
+                        self.writer.write(data)
+                        await self.writer.drain()                        
                 elif mtype == BMTR_NEW_CHANNEL_ASSIGNMENT_RESPONCE:
-\                       #TODO check for magic numbers to be repeated back
-                        self.channel = data[0]
+                        #TODO check for magic numbers to be repeated back
+                        self.channel = data[5]
+                        self.log.info("Got assigned channel = {}".format(self.channel))
                         mtypes[BMTR_NEW_CLEAR_TO_SEND][0] = self.channel
                         message_length = 5
                         data = bytearray(7)
                         data[0] = M_STARTEND
                         data[1] = message_length
-                        data[2] = self.channl
+                        data[2] = self.channel
                         data[3] = 0xBF
                         data[4] = 0x03 #type
                         data[5] = self.balboa_calc_cs(data[1:message_length], message_length - 1)
                         data[6] = M_STARTEND
-                        self.writer.write(data)        
+                        self.writer.write(data) 
+                        await self.writer.drain()     
+
+                        message_length = 7
+                        self.NTS = bytearray(9)
+                        self.NTS[0] = M_STARTEND
+                        self.NTS[1] = message_length
+                        self.NTS[2] = self.channel
+                        self.NTS[3] = 0xBF
+                        self.NTS[4] = 0xCC
+                        self.NTS[5] = 0 #Dummy
+                        self.NTS[6] = 0
+                        self.NTS[7] = self.balboa_calc_cs(data[1:message_length], message_length - 1)
+                        self.NTS[8] = M_STARTEND
+                        
                 elif mtype == BMTR_NEW_EXISTING_CLIENT_REQ:
                         message_length = 8
                         data = bytearray(9)
@@ -1144,18 +1170,19 @@ class BalboaSpaWifi:
                         data[7] = 0x00 #Dont know!
                         data[8] = self.balboa_calc_cs(data[1:message_length], message_length - 1)
                         data[9] = M_STARTEND
-                        self.writer.write(data)                        
+                        self.writer.write(data)
+                        await self.writer.drain()
                 elif mtype == BMTR_NEW_CLEAR_TO_SEND:
                         if self.queue.empty():
-                            send_CCmessage(224)
-                            msg = self.queue.get()
-                            self.writer.write(msg)
+                            #self.writer.write(self.NTS)
+                            await self.writer.drain()
                         else:
                             msg = self.queue.get()
                             self.writer.write(msg)
+                            await self.writer.drain()
                 else:
-                    self.log.error("Unhandled mtype {0}".format(mtype))
-
+                    if (data[4] > 7) and (data[4] != 0xCC):
+                        self.log.warn("Unknown Message x{}".format(data))
     async def spa_configured(self):
         if self.newFormat:
             return True
