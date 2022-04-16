@@ -9,36 +9,23 @@ from socket import error as SocketError
 import balboa
 from balboa import *
 
-NROF_BMT = 11
 
-(
-    BMTR_NEW_STATUS_UPDATE,
-    BMTR_NEW_LIGHTS_UPDATE,
-    BMTR_NEW_CC_REQ,
-    BMTR_NEW_NEW_CLIENT_CLEAR_TO_SEND,
-    BMTR_NEW_CHANNEL_ASSIGNMENT_REQ,
-    BMTR_NEW_CHANNEL_ASSIGNMENT_RESPONCE,
-    BMTR_NEW_CHANNEL_ASSIGNMENT_ACK,
-    BMTR_NEW_EXISTING_CLIENT_REQ,
-    BMTR_NEW_EXISTING_CLIENT_RESPONCE,
-    BMTR_NEW_CLEAR_TO_SEND,
-    BMTR_NEW_NOTHING_TO_SEND,
-) = range(0, NROF_BMT)
 
-mtypes = [
-    [0xFF, 0xAF, 0xC4],  # BMTR_NEW_STATUS_UPDATE
-    [0xFF, 0xAF, 0xCA],  # BMTR_NEW_LIGHTS_UPDATE
-    [0x00, 0xAF, 0xCC],  # BMTR_NEW_CC_REQ - Must have byte 0 replaced with actual channel assigned
-    [0xFE, 0xBF, 0x00],  # BMTR_NEW_NEW_CLIENT_CLEAR_TO_SEND
-    [0xFE, 0xBF, 0x01],  # BMTR_NEW_CHANNEL_ASSIGNMENT_REQ
-    [0xFE, 0xBF, 0x02],  # BMTR_NEW_CHANNEL_ASSIGNMENT_RESPONCE   
-    [0xFE, 0xBF, 0x03],  # BMTR_NEW_CHANNEL_ASSIGNMENT_ACK
-    [0xFE, 0xBF, 0x04],  # BMTR_NEW_EXISTING_CLIENT_REQ
-    [0xFE, 0xBF, 0x05],  # BMTR_NEW_EXISTING_CLIENT_RESPONCE 
-    [0x00, 0xBF, 0x06],  # BMTR_NEW_CLEAR_TO_SEND  - Must have byte 0 replaced with actual channel assigned
-    [0xFE, 0xBF, 0x07],  # BMTR_NEW_NOTHING_TO_SEND      
-]
+CLIENT_CLEAR_TO_SEND = 0x00
+CHANNEL_ASSIGNMENT_REQ = 0x01
+CHANNEL_ASSIGNMENT_RESPONCE = 0x02
+CHANNEL_ASSIGNMENT_ACK = 0x03
+EXISTING_CLIENT_REQ = 0x04
+EXISTING_CLIENT_RESPONCE = 0x05
+CLEAR_TO_SEND = 0x06
+NOTHING_TO_SEND =  0x07
 
+STATUS_UPDATE = 0xC4
+LIGHTS_UPDATE = 0xCA
+CC_REQ = 0xCC
+
+DETECT_CHANNEL_STATE_START = 0
+DETECT_CHANNEL_STATE_CHANNEL_NOT_FOUND = 5
 
 class SundanceRS485(balboa.BalboaSpaWifi):
     def __init__(self, hostname, port=899):
@@ -53,50 +40,14 @@ class SundanceRS485(balboa.BalboaSpaWifi):
         self.nr_of_pumps = 3
         self.light_array = [1, 1]
         self.circ_pump = 1
-        self.blower = 0
-        self.mister = 0
         self.aux_array = [1, 1]
         self.tempscale = self.TSCALE_F
-        self.priming = 0
         self.timescale = self.TIMESCALE_24H
-        self.curtemp = 0.0
-        self.settemp = 0.0
-        self.heatmode = 0
-        self.heatstate = 0
         self.temprange = 1
-        self.pump_status = [0, 0, 0, 0, 0, 0]
-        self.circ_pump_status = 0
-        self.light_status = [0, 0]
-        self.mister_status = 0
-        self.blower_status = 0
-        self.aux_status = [0, 0]
-        self.wifistate = 0
-        self.lastupd = 0
-        self.sleep_time = 60
-        self.macaddr = "Unknown"
-        self.idigi_device_id = "Unknown"
-        self.time_hour = 0
-        self.time_minute = 0
-        self.filter_mode = 0
-        self.prior_status = None
-        self.new_data_cb = None
-        self.model_name = "Unknown"
-        self.sw_vers = "Unknown"
-        self.cfg_sig = "Unknown"
-        self.setup = 0
-        self.ssid = "Unknown"
-        self.voltage = 0
-        self.heater_type = "Unknown"
-        self.dip_switch = "0000000000000000"
-        self.filter1_hour = 0
-        self.filter1_minute = 0
-        self.filter1_duration_hours = 0
-        self.filter1_duration_minutes = 0
-        self.filter2_enabled = 0
-        self.filter2_hour = 0
-        self.filter2_minute = 0
-        self.filter2_duration_hours = 0
-        self.filter2_duration_minutes = 0
+        self.discoveredChannels = []
+        self.activeChannels = []
+        self.detectChannelState = DETECT_CHANNEL_STATE_START
+
  
     async def connect(self):
         """ Connect to the spa."""
@@ -118,8 +69,6 @@ class SundanceRS485(balboa.BalboaSpaWifi):
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         return True
 
-
-
     async def send_temp_change(self, newtemp):
         """ Change the set temp to newtemp. """
         # Check if the new temperature is valid for the current heat mode
@@ -140,7 +89,6 @@ class SundanceRS485(balboa.BalboaSpaWifi):
             else:
                 await self.send_CCmessage(225) #Temp Up Key
         self.settemp = newtemp
-
 
     async def change_light(self, light, newstate):
         """ Change light #light to newstate. """
@@ -175,8 +123,6 @@ class SundanceRS485(balboa.BalboaSpaWifi):
         else:
             await self.send_CCmessage(239) #Clear Ray / Circulating Pump
 
-
-
     async def send_CCmessage(self, val):
         """ Sends a message to the spa with variable length bytes. """    
         # if not connected, we can't send a message
@@ -196,7 +142,7 @@ class SundanceRS485(balboa.BalboaSpaWifi):
         data[1] = message_length
         data[2] = self.channel
         data[3] = 0xBF
-        data[4] = 0xCC
+        data[4] = CC_REQ
         data[5] = val
         data[6] = 0
         data[7] = self.balboa_calc_cs(data[1:message_length], message_length - 1)
@@ -210,7 +156,6 @@ class SundanceRS485(balboa.BalboaSpaWifi):
         self.log.info("Not supported with New Format messaging")
         return 
         
- 
     def xormsg(self, data):
         lst = []
         for i in range(0,len(data)-1,2):
@@ -303,25 +248,26 @@ class SundanceRS485(balboa.BalboaSpaWifi):
         """Parse a status update from the spa.
         01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29
         TODO Example after decryption
-        """
-        
+        """      
         #TODO: The rest...
 
-    def find_balboa_mtype(self, data):
-        """ Look at a message and try to figure out what type it was. """
-        if len(data) < 5:
-            return None
-        for i in range(0, NROF_BMT):
-            if (data[2] == mtypes[i][0]
-                    and data[3] == mtypes[i][1]
-                    and data[4] == mtypes[i][2]):
-                return i
-        return None
-
+    async def setMyChan(self, chan):
+        self.channel = chan
+        self.log.info("Got assigned channel = {}".format(self.channel))
+        message_length = 7
+        self.NTS = bytearray(9)
+        self.NTS[0] = M_STARTEND
+        self.NTS[1] = message_length
+        self.NTS[2] = self.channel
+        self.NTS[3] = 0xBF
+        self.NTS[4] = CC_REQ
+        self.NTS[5] = 0 #Dummy
+        self.NTS[6] = 0
+        self.NTS[7] = self.balboa_calc_cs(self.NTS[1:message_length], message_length - 1)
+        self.NTS[8] = M_STARTEND
 
     async def listen(self):
         """ Listen to the spa babble forever. """
-
         while True:
             if not self.connected:
                 # sleep and hope the checker fixes us
@@ -333,21 +279,23 @@ class SundanceRS485(balboa.BalboaSpaWifi):
                 await asyncio.sleep(0.1)
                 continue
 
-            mtype = self.find_balboa_mtype(data)
+            channel = data[2]
+            mid = data[3]
+            mtype = data[4]
 
-            if mtype == BMTR_NEW_STATUS_UPDATE:
+            if mtype == STATUS_UPDATE:
                 await self.parse_C4status_update(data)
-            elif mtype == BMTR_NEW_LIGHTS_UPDATE:
+            elif mtype == LIGHTS_UPDATE:
                 await self.parse_CA_light_status_update(data)
-            elif mtype == BMTR_NEW_NEW_CLIENT_CLEAR_TO_SEND:
-                if self.channel  is None:
+            elif mtype == CLIENT_CLEAR_TO_SEND:
+                if self.channel is None and self.detectChannelState == DETECT_CHANNEL_STATE_CHANNEL_NOT_FOUND:
                     message_length = 8
                     data = bytearray(10)
                     data[0] = M_STARTEND
                     data[1] = message_length
                     data[2] = 0xFE
                     data[3] = 0xBF
-                    data[4] = 0x01 #type
+                    data[4] = CHANNEL_ASSIGNMENT_REQ #type
                     data[5] = 0x02
                     data[6] = 0xF1 #random Magic
                     data[7] = 0x73
@@ -355,52 +303,42 @@ class SundanceRS485(balboa.BalboaSpaWifi):
                     data[9] = M_STARTEND
                     self.writer.write(data)
                     await self.writer.drain()                        
-            elif mtype == BMTR_NEW_CHANNEL_ASSIGNMENT_RESPONCE:
-                    #TODO check for magic numbers to be repeated back
-                    self.channel = data[5]
-                    self.log.info("Got assigned channel = {}".format(self.channel))
-                    mtypes[BMTR_NEW_CLEAR_TO_SEND][0] = self.channel
-                    message_length = 5
-                    data = bytearray(7)
-                    data[0] = M_STARTEND
-                    data[1] = message_length
-                    data[2] = self.channel
-                    data[3] = 0xBF
-                    data[4] = 0x03 #type
-                    data[5] = self.balboa_calc_cs(data[1:message_length], message_length - 1)
-                    data[6] = M_STARTEND
-                    self.writer.write(data) 
-                    await self.writer.drain()     
+            elif mtype == CHANNEL_ASSIGNMENT_RESPONCE:
+                #TODO check for magic numbers to be repeated back
+                await setMyChan(data[5])
 
-                    message_length = 7
-                    self.NTS = bytearray(9)
-                    self.NTS[0] = M_STARTEND
-                    self.NTS[1] = message_length
-                    self.NTS[2] = self.channel
-                    self.NTS[3] = 0xBF
-                    self.NTS[4] = 0xCC
-                    self.NTS[5] = 0 #Dummy
-                    self.NTS[6] = 0
-                    self.NTS[7] = self.balboa_calc_cs(data[1:message_length], message_length - 1)
-                    self.NTS[8] = M_STARTEND
-                    
-            elif mtype == BMTR_NEW_EXISTING_CLIENT_REQ:
-                    print("Existing Client")
-                    message_length = 8
-                    data = bytearray(9)
-                    data[0] = M_STARTEND
-                    data[1] = message_length
-                    data[2] = self.channel
-                    data[3] = 0xBF
-                    data[4] = 0x05 #type
-                    data[5] = 0x04 #Dont know!
-                    data[6] = 0x08 #Dont know!
-                    data[7] = 0x00 #Dont know!
-                    data[8] = self.balboa_calc_cs(data[1:message_length], message_length - 1)
-                    data[9] = M_STARTEND
-                    self.writer.write(data)
-                    await self.writer.drain()
-            elif mtype == BMTR_NEW_CLEAR_TO_SEND:
+                message_length = 5
+                data = bytearray(7)
+                data[0] = M_STARTEND
+                data[1] = message_length
+                data[2] = self.channel
+                data[3] = 0xBF
+                data[4] = CHANNEL_ASSIGNMENT_ACK #type
+                data[5] = self.balboa_calc_cs(data[1:message_length], message_length - 1)
+                data[6] = M_STARTEND
+                self.writer.write(data) 
+                await self.writer.drain()                   
+            elif mtype == EXISTING_CLIENT_REQ:                      
+                print("Existing Client")
+                message_length = 8
+                data = bytearray(9)
+                data[0] = M_STARTEND
+                data[1] = message_length
+                data[2] = self.channel
+                data[3] = 0xBF
+                data[4] = EXISTING_CLIENT_RESPONCE #type
+                data[5] = 0x04 #Dont know!
+                data[6] = 0x08 #Dont know!
+                data[7] = 0x00 #Dont know!
+                data[8] = self.balboa_calc_cs(data[1:message_length], message_length - 1)
+                data[9] = M_STARTEND
+                self.writer.write(data)
+                await self.writer.drain()
+            elif mtype == CLEAR_TO_SEND:               
+                if not channel in  self.discoveredChannels:
+                    self.discoveredChannels.append(data[2])
+                    print("Discovered Channels:" + str(self.discoveredChannels))
+                elif channel == self.channel:
                     if self.queue.empty():
                         #self.writer.write(self.NTS)
                         await self.writer.drain()
@@ -410,9 +348,25 @@ class SundanceRS485(balboa.BalboaSpaWifi):
                         await self.writer.drain()
                         print("sent")
             else:
-                if (data[4] > 7) and (data[4] != 0xCC):
-                    self.log.warn("Unknown Message x{}".format(data))
-                        
+                if mtype == CC_REQ:
+                    if not channel in  self.activeChannels:
+                        self.activeChannels.append(data[2])
+                        print("Active Channels:" + str(self.activeChannels))
+                    elif  self.detectChannelState < DETECT_CHANNEL_STATE_CHANNEL_NOT_FOUND:
+                        self.detectChannelState += 1
+                        print(self.detectChannelState)
+                        if self.detectChannelState == DETECT_CHANNEL_STATE_CHANNEL_NOT_FOUND:
+                            self.discoveredChannels.sort()
+                            print("Discovered Channels:" + str(self.discoveredChannels))
+                            for chan in self.discoveredChannels:
+                                if not chan in self.activeChannels:
+                                    await self.setMyChan( chan)
+                                    break
+                elif (mtype > NOTHING_TO_SEND) :
+                    self.log.warn("Unknown Message {:02X} {:02X} {:02X} x".format(channel, mid, mtype) + "".join(map("{:02X} ".format, bytes(data))))
+
+
+                
     async def spa_configured(self):
             return True
         
