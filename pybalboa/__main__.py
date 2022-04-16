@@ -1,5 +1,5 @@
 import pybalboa as balboa
-import sundance780
+import sundanceRS485
 
 import asyncio
 import sys
@@ -33,7 +33,7 @@ async def ReadR(spa, lastupd):
 
 async def newFormatTest():
     """ Test a miniature engine of talking to the spa."""
-    spa = sundance780.SundanceRS485("192.168.50.53", 8899)
+    spa = sundanceRS485.SundanceRS485("192.168.50.53", 8899)
     await spa.connect()
 
     asyncio.ensure_future(spa.listen())
