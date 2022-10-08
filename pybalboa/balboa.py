@@ -694,6 +694,7 @@ class BalboaSpaWifi:
     async def read_one_message(self):
         """ Listen to the spa babble once."""
         if not self.connected:
+            print("notconnected")
             return None
 
         try:
@@ -715,9 +716,17 @@ class BalboaSpaWifi:
             return None
 
         if header[0] == M_STARTEND:
-            # header[1] is size, + checksum + M_STARTEND (we already read 2 tho!)
-            rlen = header[1]
+            # header[1] is size, + checksum + M_STARTEND 
+            rlen = header[1]          
         else:
+            if header[1] == M_STARTEND:
+                rlen = await self.reader.readexactly(1)
+            #else:
+            #    print(header.hex())
+            return None
+
+        if rlen > 128:
+            print(rlen)
             return None
 
         # now get the rest of the data
@@ -728,13 +737,17 @@ class BalboaSpaWifi:
             return None
 
         full_data = header + data
+        
+        #print("".join(map("{:02X} ".format, bytes(full_data))))
+        #print("".join(map("{:02X} ".format, bytes(full_data))))
+        
         # don't count M_STARTENDs or CHKSUM (remember that rlen is 2 short)
         crc = self.balboa_calc_cs(full_data[1:], rlen-1)
         if crc != full_data[-2]:
             self.log.error('Message had bad CRC, discarding')
             return None
 
-        # self.log.error('got update: {}'.format(full_data.hex()))
+        #self.log.error('got update: {}'.format(full_data.hex()))
         return full_data
 
     async def check_connection_status(self):
