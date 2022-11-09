@@ -524,7 +524,7 @@ class SundanceRS485(BalboaSpaWifi):
                     await self.writer.drain()                        
             elif mtype == CHANNEL_ASSIGNMENT_RESPONCE:
                 #TODO check for magic numbers to be repeated back
-                await setMyChan(data[5])
+                await self.setMyChan(data[5])
                 message_length = 5
                 data = bytearray(7)
                 data[0] = M_STARTEND
