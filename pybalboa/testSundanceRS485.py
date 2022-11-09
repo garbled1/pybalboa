@@ -14,6 +14,7 @@ import sys
 
 async def ReadR(spa, lastupd):
         await asyncio.sleep(1)
+        return spa.lastupd
         if spa.lastupd != lastupd:
             lastupd = spa.lastupd
             print("New data as of {0}".format(spa.lastupd))
