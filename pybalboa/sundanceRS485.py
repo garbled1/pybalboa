@@ -27,6 +27,10 @@ STATUS_UPDATE = 0xC4
 LIGHTS_UPDATE = 0xCA
 CC_REQ = 0xCC
 
+CC_REQ_ALT_17 = 0x17
+STATUS_UPDATE_ALT_16 = 0x16
+LIGHTS_UPDATE_ALT_23 = 0x23
+
 #Button CC equivs
 BTN_CLEAR_RAY = 239
 BTN_P1 = 228
@@ -48,7 +52,9 @@ class SundanceRS485(BalboaSpaWifi):
     def __init__(self, hostname, port=8899):
         super().__init__(hostname, port)
         
-        print("a")
+        print("Test For @jackbrown1993")
+        
+
         
         #debug
         logging.basicConfig()
@@ -467,6 +473,13 @@ class SundanceRS485(BalboaSpaWifi):
 
     async def listen(self):
         """ Listen to the spa babble forever. """
+        
+        #teststring = "7E25FFAF161012270B16420026FA260A140181000042011C00098000000A000000FF0000002F7E"
+        #data = bytes.fromhex(teststring)
+        #await self.parse_C4status_update(data)
+        
+        #return
+        
         while True:
             if not self.connected:
                 # sleep and hope the checker fixes us
@@ -484,9 +497,14 @@ class SundanceRS485(BalboaSpaWifi):
 
             #print("a")
 
+
             if mtype == STATUS_UPDATE:
                 await self.parse_C4status_update(data)
             elif mtype == LIGHTS_UPDATE:
+                await self.parse_CA_light_status_update(data)
+            elif mtype == STATUS_UPDATE_ALT_16:
+                await self.parse_C4status_update(data)
+            elif mtype == LIGHTS_UPDATE_ALT_23:
                 await self.parse_CA_light_status_update(data)
             elif mtype == CLIENT_CLEAR_TO_SEND:
                 if self.channel is None and self.detectChannelState == DETECT_CHANNEL_STATE_CHANNEL_NOT_FOUND:
@@ -548,7 +566,7 @@ class SundanceRS485(BalboaSpaWifi):
                         await self.writer.drain()
                         #print("sent")
             else:
-                if mtype == CC_REQ:
+                if (mtype == CC_REQ) or  (mtype == STATUS_UPDATE_ALT_16):
                     if not channel in  self.activeChannels:
                         self.activeChannels.append(data[2])
                         print("Active Channels:" + str(self.activeChannels))
@@ -562,6 +580,9 @@ class SundanceRS485(BalboaSpaWifi):
                                 if not chan in self.activeChannels:
                                     await self.setMyChan( chan)
                                     break
+                    if (mtype == STATUS_UPDATE_ALT_16):
+                        if (data[5]) != 0:
+                            self.log.warn("Got Button Press x".format(channel, mid, mtype) + "".join(map("{:02X} ".format, bytes(data))))
                 elif (mtype > NOTHING_TO_SEND) :
                     self.log.warn("Unknown Message {:02X} {:02X} {:02X} x".format(channel, mid, mtype) + "".join(map("{:02X} ".format, bytes(data))))
               
