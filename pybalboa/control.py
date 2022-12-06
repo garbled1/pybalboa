@@ -160,13 +160,7 @@ class SpaControl(EventMixin):
 class HeatModeSpaControl(SpaControl):
     """Heat mode spa control."""
 
-    def __init__(
-        self,
-        client: SpaClient,
-        states: int | list[IntEnum] = 1,
-        index: int | None = None,
-        custom_options: list[IntEnum] | None = None,
-    ) -> None:
+    def __init__(self, client: SpaClient) -> None:
         """Initialize a heat mode spa control."""
         super().__init__(
             client,

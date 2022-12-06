@@ -9,7 +9,7 @@ from datetime import datetime, time, timedelta, timezone
 from random import uniform
 from typing import Any
 
-from .control import FaultLog, HeatModeSpaControl, SpaControl
+from .control import EVENT_UPDATE, EventMixin, FaultLog, HeatModeSpaControl, SpaControl
 from .enums import (
     AccessibilityType,
     ControlType,
@@ -42,7 +42,7 @@ ACCESSIBILITY_TYPE_MAP = {
 }
 
 
-class SpaClient:
+class SpaClient(EventMixin):
     """Spa client."""
 
     def __init__(
@@ -651,6 +651,8 @@ class SpaClient:
 
         if not self.configuration_loaded and not reprocess:
             self._check_configuration_loaded()
+
+        self.emit(EVENT_UPDATE)
 
     def _update_control_states(
         self, control_type: ControlType, states: list[int]

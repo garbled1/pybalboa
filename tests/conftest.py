@@ -27,7 +27,7 @@ def load_spa_from_json(name: str) -> Any:
 @pytest.fixture()
 def lpi501st(
     event_loop: BaseEventLoop, unused_tcp_port: int
-) -> Generator[int, None, None]:
+) -> Generator[SpaServer, None, None]:
     """Mock a LPI501ST spa."""
     yield from spa_server(event_loop, unused_tcp_port, "LPI501ST")
 
@@ -35,7 +35,7 @@ def lpi501st(
 @pytest.fixture()
 def mxbp20(
     event_loop: BaseEventLoop, unused_tcp_port: int
-) -> Generator[int, None, None]:
+) -> Generator[SpaServer, None, None]:
     """Mock a MXBP20 spa."""
     yield from spa_server(event_loop, unused_tcp_port, "MXBP20")
 
@@ -43,14 +43,14 @@ def mxbp20(
 @pytest.fixture()
 def stil7_spa(
     event_loop: BaseEventLoop, unused_tcp_port: int
-) -> Generator[int, None, None]:
+) -> Generator[SpaServer, None, None]:
     """Mock a Stil7 spa."""
     yield from spa_server(event_loop, unused_tcp_port, "stil7-2017")
 
 
 def spa_server(
     event_loop: BaseEventLoop, unused_tcp_port: int, filename: str
-) -> Generator[int, None, None]:
+) -> Generator[SpaServer, None, None]:
     """Generate a server with an unused tcp port."""
     messages = load_spa_from_json(filename)
     spa = SpaServer(unused_tcp_port, messages)
@@ -58,7 +58,7 @@ def spa_server(
     event_loop.run_until_complete(asyncio.sleep(0.01))
 
     try:
-        yield unused_tcp_port
+        yield spa
     finally:
         task.cancel()
 
@@ -70,6 +70,7 @@ class SpaServer:
         """Initialize a spa server."""
         self.port = port
         self.messages = messages
+        self.received_messages: list[bytes] = []
 
     async def start_server(self) -> None:
         """Start the server."""
@@ -87,6 +88,7 @@ class SpaServer:
         while True:
             try:
                 data = await read_one_message(reader, timeout)
+                self.received_messages.append(data)
                 message_type = MessageType2(data[3])
             except asyncio.TimeoutError:
                 message_type = MessageType2.STATUS_UPDATE
