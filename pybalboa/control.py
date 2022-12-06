@@ -102,6 +102,11 @@ class SpaControl(EventMixin):
         return f"{self.name}: {self.state.name}"
 
     @property
+    def client(self) -> SpaClient:
+        """Return the client."""
+        return self._client
+
+    @property
     def control_type(self) -> ControlType:
         """Return the control type."""
         return self._control_type

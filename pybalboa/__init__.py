@@ -12,8 +12,10 @@ __license__ = "Apache 2.0"
 __copyright__ = "Copyright (c) 2019 Tim Rightnour"
 
 from .client import SpaClient
+from .control import EVENT_UPDATE, SpaControl
+from .exceptions import SpaConnectionError
 
-__all__ = ["SpaClient"]
+__all__ = ["SpaClient", "SpaControl", "SpaConnectionError", "EVENT_UPDATE"]
 
 if __name__ == "__main__":
     print(__version__)
