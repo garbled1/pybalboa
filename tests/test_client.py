@@ -15,7 +15,7 @@ async def test_stil7(stil7_spa: int) -> None:
         assert spa.connected
         assert await spa.async_configuration_loaded()
         assert spa.configuration_loaded
-        assert spa._pump_count == 1
+        assert spa.pump_count == 1
 
 
 @pytest.mark.asyncio
@@ -25,7 +25,7 @@ async def test_lpi501st(lpi501st: int) -> None:
         assert spa.connected
         assert await spa.async_configuration_loaded()
         assert spa.configuration_loaded
-        assert spa._pump_count == 2
+        assert spa.pump_count == 2
 
 
 @pytest.mark.asyncio
@@ -35,4 +35,4 @@ async def test_mxbp20(mxbp20: int) -> None:
         assert spa.connected
         assert await spa.async_configuration_loaded()
         assert spa.configuration_loaded
-        assert spa._pump_count == 2
+        assert spa.pump_count == 2

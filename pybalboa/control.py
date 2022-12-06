@@ -151,7 +151,7 @@ class SpaControl(EventMixin):
             return
         if self._state == state:
             return
-        for _ in range((state - self._state) % (self._states + 1)):
+        for _ in range((state - self._state) % self._states):
             await self._client.send_message(
                 MessageType.TOGGLE_STATE, self._code + (self._index or 0)
             )

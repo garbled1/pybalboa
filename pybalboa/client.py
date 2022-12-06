@@ -215,6 +215,11 @@ class SpaClient:
         return self._model
 
     @property
+    def pump_count(self) -> int:
+        """Return the number of pumps."""
+        return self._pump_count
+
+    @property
     def software_version(self) -> str:
         """Return the software version."""
         return self._software_version
@@ -453,12 +458,15 @@ class SpaClient:
         """
         if not self._device_configuration_loaded:
 
-            def _add_controls(
-                control_type: ControlType, states: list[int], use_index: bool = True
-            ) -> None:
+            def _add_controls(control_type: ControlType, on_states: list[int]) -> None:
                 self._controls.extend(
-                    SpaControl(self, control_type, state, index if use_index else None)
-                    for index, state in enumerate(states)
+                    SpaControl(
+                        self,
+                        control_type,
+                        state + 1,
+                        index if len(on_states) > 1 else None,
+                    )
+                    for index, state in enumerate(on_states)
                     if state > 0
                 )
 
@@ -477,7 +485,7 @@ class SpaClient:
 
             _add_controls(ControlType.PUMP, pumps)
             _add_controls(ControlType.LIGHT, lights)
-            _add_controls(ControlType.CIRCULATION_PUMP, [circulation_pump], False)
+            _add_controls(ControlType.CIRCULATION_PUMP, [circulation_pump])
             _add_controls(ControlType.BLOWER, blowers)
             _add_controls(ControlType.AUX, auxs)
             _add_controls(ControlType.MISTER, misters)
