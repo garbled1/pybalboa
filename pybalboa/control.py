@@ -34,9 +34,9 @@ CONTROL_TYPE_MAP = {
     ControlType.HEAT_MODE: 0x51,
 }
 STATE_OPTIONS_MAP: dict[int, list[IntEnum]] = {
-    1: list(OffOnState),
-    2: list(OffLowHighState),
-    3: list(OffLowMediumHighState),
+    2: list(OffOnState),
+    3: list(OffLowHighState),
+    4: list(OffLowMediumHighState),
 }
 
 EVENT_UPDATE = "update"
