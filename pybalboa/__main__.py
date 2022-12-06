@@ -64,12 +64,12 @@ async def connect_and_listen(host: str) -> None:
 
             print("Filter cycle")
             print("------------")
-            print(f"Filter 1 start: {spa.filter1_start}")
-            print(f"Filter 1 duration: {spa.filter1_duration}")
+            print(f"Filter cycle 1 start: {spa.filter_cycle_1_start}")
+            print(f"Filter cycle 1 duration: {spa.filter_cycle_1_duration}")
             print(
-                f"Filter 2 start: {spa.filter2_start} ({'en' if spa.filter2_enabled else 'dis'}abled)"
+                f"Filter cycle 2 start: {spa.filter_cycle_2_start} ({'en' if spa.filter_cycle_2_enabled else 'dis'}abled)"
             )
-            print(f"Filter 2 duration: {spa.filter2_duration}")
+            print(f"Filter cycle 2 duration: {spa.filter_cycle_2_duration}")
             print()
 
             print("Status update")
@@ -90,8 +90,8 @@ async def connect_and_listen(host: str) -> None:
             print(
                 f"Spa time: {spa.time_hour:02d}:{spa.time_minute:02d} {'24hr' if spa.is_24_hour else '12hr'}"
             )
-            print(f"Filter 1 running: {spa.filter1_running}")
-            print(f"Filter 2 running: {spa.filter2_running}")
+            print(f"Filter cycle 1 running: {spa.filter_cycle_1_running}")
+            print(f"Filter cycle 2 running: {spa.filter_cycle_2_running}")
             print()
 
             await test_controls(spa)

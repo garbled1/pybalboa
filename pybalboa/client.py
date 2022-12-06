@@ -94,16 +94,16 @@ class SpaClient(EventMixin):
         self._pump_count: int
 
         # filter cycle
-        self._filter1_start: time
-        self._filter1_duration: timedelta
-        self._filter2_enabled: bool
-        self._filter2_start: time
-        self._filter2_duration: timedelta
+        self._filter_cycle_1_start: time
+        self._filter_cycle_1_duration: timedelta
+        self._filter_cycle_2_enabled: bool
+        self._filter_cycle_2_start: time
+        self._filter_cycle_2_duration: timedelta
 
         # status update
         self._accessibility_type: AccessibilityType
-        self._filter1_running: bool
-        self._filter2_running: bool
+        self._filter_cycle_1_running: bool
+        self._filter_cycle_2_running: bool
         self._heat_state: HeatState
         self._is_24_hour: bool
         self._time_hour: int
@@ -155,39 +155,39 @@ class SpaClient(EventMixin):
         return self._dip_switch
 
     @property
-    def filter1_start(self) -> time:
-        """Return filter 1 start time."""
-        return self._filter1_start
+    def filter_cycle_1_start(self) -> time:
+        """Return filter cycle 1 start time."""
+        return self._filter_cycle_1_start
 
     @property
-    def filter1_duration(self) -> timedelta:
-        """Return filter 1 duration."""
-        return self._filter1_duration
+    def filter_cycle_1_duration(self) -> timedelta:
+        """Return filter cycle 1 duration."""
+        return self._filter_cycle_1_duration
 
     @property
-    def filter1_running(self) -> bool:
-        """Return `True` if filter 1 is running."""
-        return self._filter1_running
+    def filter_cycle_1_running(self) -> bool:
+        """Return `True` if filter cycle 1 is running."""
+        return self._filter_cycle_1_running
 
     @property
-    def filter2_enabled(self) -> bool:
-        """Return `True` if filter 2 is enabled."""
-        return self._filter2_enabled
+    def filter_cycle_2_enabled(self) -> bool:
+        """Return `True` if filter cycle 2 is enabled."""
+        return self._filter_cycle_2_enabled
 
     @property
-    def filter2_start(self) -> time:
-        """Return filter 2 start time."""
-        return self._filter2_start
+    def filter_cycle_2_start(self) -> time:
+        """Return filter cycle 2 start time."""
+        return self._filter_cycle_2_start
 
     @property
-    def filter2_duration(self) -> timedelta:
-        """Return filter 2 duration."""
-        return self._filter2_duration
+    def filter_cycle_2_duration(self) -> timedelta:
+        """Return filter cycle 2 duration."""
+        return self._filter_cycle_2_duration
 
     @property
-    def filter2_running(self) -> bool:
-        """Return `True` if filter 2 is running."""
-        return self._filter2_running
+    def filter_cycle_2_running(self) -> bool:
+        """Return `True` if filter cycle 2 is running."""
+        return self._filter_cycle_2_running
 
     @property
     def heat_state(self) -> HeatState:
@@ -529,11 +529,11 @@ class SpaClient(EventMixin):
         06    | filter cycle 2 duration hours
         07    | filter cycle 2 duration minutes
         """
-        self._filter1_start = time(*data[0:2])
-        self._filter1_duration = timedelta(hours=data[2], minutes=data[3])
-        self._filter2_enabled = bool(data[4] >> 7)
-        self._filter2_start = time(data[4] & 0x7F, data[5])
-        self._filter2_duration = timedelta(hours=data[6], minutes=data[7])
+        self._filter_cycle_1_start = time(*data[0:2])
+        self._filter_cycle_1_duration = timedelta(hours=data[2], minutes=data[3])
+        self._filter_cycle_2_enabled = bool(data[4] >> 7)
+        self._filter_cycle_2_start = time(data[4] & 0x7F, data[5])
+        self._filter_cycle_2_duration = timedelta(hours=data[6], minutes=data[7])
         self._filter_cycle_loaded = True
         self._check_configuration_loaded()
 
@@ -622,8 +622,8 @@ class SpaClient(EventMixin):
         temperature = None if (temperature := data[2]) == 255 else temperature / divisor
         self._temperature = temperature
         self._target_temperature = data[20] / divisor
-        self._filter1_running = flag & 0x04 != 0
-        self._filter2_running = flag & 0x08 != 0
+        self._filter_cycle_1_running = flag & 0x04 != 0
+        self._filter_cycle_2_running = flag & 0x08 != 0
         self._accessibility_type = ACCESSIBILITY_TYPE_MAP.get(
             flag & 0x48, AccessibilityType.ALL
         )
@@ -782,43 +782,45 @@ class SpaClient(EventMixin):
 
     async def set_filter_cycle(
         self,
-        filter1_hour: int | None = None,
-        filter1_minute: int | None = None,
-        filter1_duration_hours: int | None = None,
-        filter1_duration_minutes: int | None = None,
-        filter2_enabled: bool | None = None,
-        filter2_hour: int | None = None,
-        filter2_minute: int | None = None,
-        filter2_duration_hours: int | None = None,
-        filter2_duration_minutes: int | None = None,
+        filter_cycle_1_hour: int | None = None,
+        filter_cycle_1_minute: int | None = None,
+        filter_cycle_1_duration_hours: int | None = None,
+        filter_cycle_1_duration_minutes: int | None = None,
+        filter_cycle_2_enabled: bool | None = None,
+        filter_cycle_2_hour: int | None = None,
+        filter_cycle_2_minute: int | None = None,
+        filter_cycle_2_duration_hours: int | None = None,
+        filter_cycle_2_duration_minutes: int | None = None,
     ) -> None:
         """Set the filter cycle."""
         values = (
-            filter1_hour,
-            filter1_minute,
-            filter1_duration_hours,
-            filter1_duration_minutes,
-            filter2_enabled,
-            filter2_hour,
-            filter2_minute,
-            filter2_duration_hours,
-            filter2_duration_minutes,
+            filter_cycle_1_hour,
+            filter_cycle_1_minute,
+            filter_cycle_1_duration_hours,
+            filter_cycle_1_duration_minutes,
+            filter_cycle_2_enabled,
+            filter_cycle_2_hour,
+            filter_cycle_2_minute,
+            filter_cycle_2_duration_hours,
+            filter_cycle_2_duration_minutes,
         )
         if all(value is None for value in values):
             return
 
         message = [0] * 8
-        message[0] = default(filter1_hour, self.filter1_start.hour)
-        message[1] = default(filter1_minute, self.filter1_start.minute)
-        old_duration = int(self.filter1_duration.seconds / 60)
-        message[2] = default(filter1_duration_hours, int(old_duration / 60))
-        message[3] = default(filter1_duration_minutes, old_duration % 60)
-        enabled = default(filter2_enabled, self.filter2_enabled) << 7
-        message[4] = enabled | (default(filter2_hour, self.filter2_start.hour))
-        message[5] = default(filter2_minute, self.filter2_start.minute)
-        old_duration = int(self.filter2_duration.seconds / 60)
-        message[6] = default(filter2_duration_hours, int(old_duration / 60))
-        message[7] = default(filter2_duration_minutes, old_duration % 60)
+        message[0] = default(filter_cycle_1_hour, self.filter_cycle_1_start.hour)
+        message[1] = default(filter_cycle_1_minute, self.filter_cycle_1_start.minute)
+        old_duration = int(self.filter_cycle_1_duration.seconds / 60)
+        message[2] = default(filter_cycle_1_duration_hours, int(old_duration / 60))
+        message[3] = default(filter_cycle_1_duration_minutes, old_duration % 60)
+        enabled = default(filter_cycle_2_enabled, self.filter_cycle_2_enabled) << 7
+        message[4] = enabled | (
+            default(filter_cycle_2_hour, self.filter_cycle_2_start.hour)
+        )
+        message[5] = default(filter_cycle_2_minute, self.filter_cycle_2_start.minute)
+        old_duration = int(self.filter_cycle_2_duration.seconds / 60)
+        message[6] = default(filter_cycle_2_duration_hours, int(old_duration / 60))
+        message[7] = default(filter_cycle_2_duration_minutes, old_duration % 60)
 
         await self.send_message(MessageType.FILTER_CYCLE, *message)
         await self.request_filter_cycle()
