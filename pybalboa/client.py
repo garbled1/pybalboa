@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, time, timedelta
 from random import uniform
 from typing import Any
 
@@ -25,6 +25,7 @@ from .utils import (
     default,
     read_one_message,
     to_celsius,
+    utcnow,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -61,7 +62,8 @@ class SpaClient(EventMixin):
 
         self._last_log_mesage: bytes | None = None
         self._previous_status: bytes | None = None
-        self._last_message_received: datetime
+        self._last_message_received: datetime | None = None
+        self._last_message_sent: datetime | None = None
 
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
@@ -128,7 +130,7 @@ class SpaClient(EventMixin):
         return self._writer.transport.is_reading()  # type: ignore
 
     @property
-    def last_message_received(self) -> datetime:
+    def last_message_received(self) -> datetime | None:
         """Return the last message received datetime."""
         return self._last_message_received
 
@@ -402,6 +404,7 @@ class SpaClient(EventMixin):
     async def _start_listener(self) -> None:
         """Start the listener."""
         timeout = 15
+        timeout_d = timedelta(seconds=timeout)
         assert self._reader
         while self.connected:
             try:
@@ -409,10 +412,9 @@ class SpaClient(EventMixin):
             except SpaMessageError as err:
                 _LOGGER.debug("%s ## %s", self._host, err)
                 continue
-            except asyncio.TimeoutError:
-                await self.send_device_present()
-                continue
-            except asyncio.IncompleteReadError:
+            except (asyncio.TimeoutError, asyncio.IncompleteReadError):
+                if not (sent := self._last_message_sent) or sent + timeout_d < utcnow():
+                    await self.send_device_present()
                 continue
             except Exception as ex:  # pylint: disable=broad-except
                 _LOGGER.error("%s ## %s", self._host, ex)
@@ -422,7 +424,7 @@ class SpaClient(EventMixin):
 
     def _process_message(self, data: bytes) -> None:
         """Process a message."""
-        self._last_message_received = datetime.now(timezone.utc)
+        self._last_message_received = utcnow()
         message_type = MessageType(list(data[1:4]))
         self._log_message(message_type, data)
         data = data[4:-1]
@@ -767,6 +769,7 @@ class SpaClient(EventMixin):
             assert self._writer
             self._writer.write(data)
             await self._writer.drain()
+            self._last_message_sent = utcnow()
         except Exception as ex:  # pylint: disable=broad-except
             _LOGGER.error("%s ## error sending message: %s", self._host, ex)
 

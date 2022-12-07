@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from datetime import datetime, timezone
 from typing import Any
 
 from .exceptions import SpaMessageError
@@ -78,3 +79,8 @@ async def read_one_message(reader: asyncio.StreamReader, timeout: int = 15) -> b
 def to_celsius(fahrenheit: float) -> float:
     """Convert a Fahrenheit temperature to Celsius."""
     return 0.5 * round(((fahrenheit - 32) / 1.8) / 0.5)
+
+
+def utcnow() -> datetime:
+    """Get now in UTC time."""
+    return datetime.now(timezone.utc)
