@@ -404,7 +404,7 @@ class SpaClient(EventMixin):
     async def _start_listener(self) -> None:
         """Start the listener."""
         timeout = 15
-        timeout_d = timedelta(seconds=timeout)
+        wait_time = timedelta(seconds=timeout)
         assert self._reader
         while self.connected:
             try:
@@ -413,7 +413,7 @@ class SpaClient(EventMixin):
                 _LOGGER.debug("%s ## %s", self._host, err)
                 continue
             except (asyncio.TimeoutError, asyncio.IncompleteReadError):
-                if not (sent := self._last_message_sent) or sent + timeout_d < utcnow():
+                if not (sent := self._last_message_sent) or sent + wait_time < utcnow():
                     await self.send_device_present()
                 continue
             except Exception as ex:  # pylint: disable=broad-except
