@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-from asyncio import StreamReader
 from collections.abc import Callable
 from typing import Any
 
@@ -58,7 +57,7 @@ def default(value: Any, default_value: Any) -> Any:
     return default_value if value is None else value
 
 
-async def read_one_message(reader: StreamReader, timeout: int = 15) -> bytes:
+async def read_one_message(reader: asyncio.StreamReader, timeout: int = 15) -> bytes:
     """Read one message."""
     data = await asyncio.wait_for(reader.readexactly(2), timeout)
     if data[0] != MESSAGE_DELIMETER or data[1] == 0:

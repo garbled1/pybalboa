@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from asyncio import BaseEventLoop, StreamReader, StreamWriter
 from collections.abc import Generator
 from typing import Any
 
@@ -26,7 +25,7 @@ def load_spa_from_json(name: str) -> Any:
 
 @pytest.fixture()
 def lpi501st(
-    event_loop: BaseEventLoop, unused_tcp_port: int
+    event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
 ) -> Generator[SpaServer, None, None]:
     """Mock a LPI501ST spa."""
     yield from spa_server(event_loop, unused_tcp_port, "LPI501ST")
@@ -34,7 +33,7 @@ def lpi501st(
 
 @pytest.fixture()
 def mxbp20(
-    event_loop: BaseEventLoop, unused_tcp_port: int
+    event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
 ) -> Generator[SpaServer, None, None]:
     """Mock a MXBP20 spa."""
     yield from spa_server(event_loop, unused_tcp_port, "MXBP20")
@@ -42,14 +41,14 @@ def mxbp20(
 
 @pytest.fixture()
 def stil7_spa(
-    event_loop: BaseEventLoop, unused_tcp_port: int
+    event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
 ) -> Generator[SpaServer, None, None]:
     """Mock a Stil7 spa."""
     yield from spa_server(event_loop, unused_tcp_port, "stil7-2017")
 
 
 def spa_server(
-    event_loop: BaseEventLoop, unused_tcp_port: int, filename: str
+    event_loop: asyncio.BaseEventLoop, unused_tcp_port: int, filename: str
 ) -> Generator[SpaServer, None, None]:
     """Generate a server with an unused tcp port."""
     messages = load_spa_from_json(filename)
@@ -82,7 +81,9 @@ class SpaServer:
         async with server:
             await server.serve_forever()
 
-    async def handle_message(self, reader: StreamReader, writer: StreamWriter) -> None:
+    async def handle_message(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
         """Handle a message."""
         timeout = 1
         while True:

@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 from pybalboa import SpaClient
-from pybalboa.enums import LowHighRange, OffLowHighState, OffOnState
+from pybalboa.enums import HeatMode, LowHighRange, OffLowHighState, OffOnState
 
 from .conftest import SpaServer
 
@@ -46,6 +46,11 @@ async def test_stil7(stil7_spa: SpaServer) -> None:
         assert control.name == "Temperature range"
         assert control.state == LowHighRange.HIGH
         assert control.options == list(LowHighRange)
+
+        control = spa.heat_mode
+        assert control.name == "Heat mode"
+        assert control.state == HeatMode.READY
+        assert control.options == list(HeatMode)[:2]
 
 
 @pytest.mark.asyncio

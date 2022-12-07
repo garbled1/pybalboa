@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from asyncio.exceptions import IncompleteReadError
-from asyncio.streams import StreamReader, StreamWriter
 from datetime import datetime, time, timedelta, timezone
 from random import uniform
 from typing import Any
@@ -65,8 +63,8 @@ class SpaClient(EventMixin):
         self._previous_status: bytes | None = None
         self._last_message_received: datetime
 
-        self._reader: StreamReader | None = None
-        self._writer: StreamWriter | None = None
+        self._reader: asyncio.StreamReader | None = None
+        self._writer: asyncio.StreamWriter | None = None
         self._connection_monitor: asyncio.Task | None = None
         self._listener: asyncio.Task | None = None
 
@@ -411,8 +409,10 @@ class SpaClient(EventMixin):
             except SpaMessageError as err:
                 _LOGGER.debug("%s ## %s", self._host, err)
                 continue
-            except (asyncio.TimeoutError, IncompleteReadError):
+            except asyncio.TimeoutError:
                 await self.send_device_present()
+                continue
+            except asyncio.IncompleteReadError:
                 continue
             except Exception as ex:  # pylint: disable=broad-except
                 _LOGGER.error("%s ## %s", self._host, ex)

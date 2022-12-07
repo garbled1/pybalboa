@@ -1,16 +1,13 @@
 """Main entry."""
 import asyncio
+import logging
 import sys
 from enum import IntEnum
 
 try:
-    from client import SpaClient
-    from control import SpaControl
-    from exceptions import SpaConnectionError
+    from . import SpaClient, SpaConnectionError, SpaControl
 except ImportError:
-    from pybalboa import SpaClient
-    from pybalboa.control import SpaControl
-    from pybalboa.exceptions import SpaConnectionError
+    from pybalboa import SpaClient, SpaConnectionError, SpaControl
 
 
 def usage() -> None:
@@ -21,13 +18,13 @@ def usage() -> None:
 async def connect_and_listen(host: str) -> None:
     """Connect to the spa and try some commands."""
     print("******** Testing spa connection and configuration **********")
-    print()
     try:
         async with SpaClient(host) as spa:
             if not await spa.async_configuration_loaded():
                 print("Config not loaded, something is wrong!")
                 return
 
+            print()
             print("Module identification")
             print("---------------------")
             print(f"MAC address: {spa.mac_address}")
@@ -74,13 +71,12 @@ async def connect_and_listen(host: str) -> None:
 
             print("Status update")
             print("-------------")
-            print(f"New data as of {spa.last_message_received}")
-            print(f"Temperature unit: {spa.temperature_unit}")
+            print(f"Temperature unit: {spa.temperature_unit.name}")
             print(f"Temperature: {spa.temperature}")
             print(f"Target temperature: {spa.target_temperature}")
-            print(f"Temperature range: {spa.temperature_range}")
-            print(f"Heat mode: {spa.heat_mode}")
-            print(f"Heat state: {spa.heat_state}")
+            print(f"Temperature range: {spa.temperature_range.state.name}")
+            print(f"Heat mode: {spa.heat_mode.state.name}")
+            print(f"Heat state: {spa.heat_state.name}")
             print(f"Pump status: {spa.pumps}")
             print(f"Circulation pump: {spa.circulation_pump}")
             print(f"Light status: {spa.lights}")
@@ -98,7 +94,8 @@ async def connect_and_listen(host: str) -> None:
     except SpaConnectionError:
         print(f"Failed to connect to spa at {host}")
 
-    print("Please add the above section to issue:")
+    print()
+    print("Please add the above output to issue:")
     print("https://github.com/garbled1/pybalboa/issues/1")
 
 
@@ -127,6 +124,7 @@ async def test_controls(spa: SpaClient) -> None:
                 await adjust_control(control, option)
         if control.state != state:
             await adjust_control(control, state)
+        print()
 
 
 async def adjust_temperature(spa: SpaClient, temperature: float) -> None:
@@ -165,13 +163,15 @@ async def adjust_control(control: SpaControl, state: IntEnum) -> None:
         print(f"  State is now {control.state.name}")
     except asyncio.TimeoutError:
         print(f"  State was not changed after {wait} seconds; is {control.state.name}")
-    print()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
+    if (args := len(sys.argv)) < 2:
         usage()
         sys.exit(1)
+
+    if args > 2 and sys.argv[2] in ("-d", "--debug"):
+        logging.basicConfig(level=logging.DEBUG)
 
     asyncio.run(connect_and_listen(sys.argv[1]))
 
