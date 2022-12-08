@@ -532,10 +532,12 @@ class SpaClient(EventMixin):
         06    | filter cycle 2 duration hours
         07    | filter cycle 2 duration minutes
         """
-        self._filter_cycle_1_start = time(*data[0:2])
+        start = (datetime.min + timedelta(hours=data[0], minutes=data[1])).time()
+        self._filter_cycle_1_start = start
         self._filter_cycle_1_duration = timedelta(hours=data[2], minutes=data[3])
         self._filter_cycle_2_enabled = bool(data[4] >> 7)
-        self._filter_cycle_2_start = time(data[4] & 0x7F, data[5])
+        start = (datetime.min + timedelta(hours=data[4] & 0x7F, minutes=data[5])).time()
+        self._filter_cycle_2_start = start
         self._filter_cycle_2_duration = timedelta(hours=data[6], minutes=data[7])
         self._filter_cycle_loaded = True
         self._check_configuration_loaded()
