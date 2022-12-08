@@ -145,9 +145,8 @@ class SpaControl(EventMixin):
 
     async def set_state(self, state: int | IntEnum) -> None:
         """Set control to state."""
-        state = int(state)
         if state not in self.options:
-            _LOGGER.error("Invalid state")
+            _LOGGER.error("Cannot set state to %s", state)
             return
         if self._state == state:
             return
@@ -171,9 +170,8 @@ class HeatModeSpaControl(SpaControl):
 
     async def set_state(self, state: int | HeatMode) -> None:
         """Set control to state."""
-        state = int(state)
         if state not in self.options:
-            _LOGGER.error("Invalid state")
+            _LOGGER.error("Cannot set state to %s", state)
             return
         if self._state == state:
             return

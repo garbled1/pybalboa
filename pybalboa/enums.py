@@ -4,7 +4,7 @@ from __future__ import annotations
 from enum import Enum, IntEnum
 
 
-class MessageType2(IntEnum):
+class MessageType(IntEnum):
     """Message type."""
 
     DEVICE_PRESENT = 0x04
@@ -12,7 +12,7 @@ class MessageType2(IntEnum):
     STATUS_UPDATE = 0x13
     SET_TEMPERATURE = 0x20
     SET_TIME = 0x21
-    SETTINGS_REQUEST = 0x22
+    REQUEST = 0x22
     FILTER_CYCLE = 0x23
     SYSTEM_INFORMATION = 0x24
     SETUP_PARAMETERS = 0x25
@@ -26,7 +26,7 @@ class MessageType2(IntEnum):
     UNKNOWN = -1
 
     @classmethod
-    def _missing_(cls, _: object) -> MessageType2:
+    def _missing_(cls, _: object) -> MessageType:
         """Return default if not found."""
         return cls.UNKNOWN
 
@@ -40,42 +40,10 @@ class SettingsCode(IntEnum):
     SETUP_PARAMETERS = 0x04
     FAULT_LOG = 0x20
 
-
-class MessageType(Enum):
-    """Message types."""
-
-    DEVICE_PRESENT = [0x0A, 0xBF, 0x04]
-
-    PANEL_REQUEST = [0x0A, 0xBF, 0x22]
-    DEVICE_CONFIGURATION_REQUEST = [*PANEL_REQUEST, 0x00, 0x00, 0x01]
-    FAULT_LOG_REQUEST = [*PANEL_REQUEST, 0x20]
-    FILTER_CYCLE_REQUEST = [*PANEL_REQUEST, 0x01, 0x00, 0x00]
-    SETUP_PARAMETERS_REQUEST = [*PANEL_REQUEST, 0x04, 0x00, 0x00]
-    STATUS_UPDATE_REQUEST = [*PANEL_REQUEST, 0x00, 0x00, 0x00]
-    SYSTEM_INFORMATION_REQUEST = [*PANEL_REQUEST, 0x02, 0x00, 0x00]
-
-    DEVICE_CONFIGURATION = [0x0A, 0xBF, 0x2E]
-    FAULT_LOG = [0x0A, 0xBF, 0x28]
-    FILTER_CYCLE = [0x0A, 0xBF, 0x23]
-    MODULE_IDENTIFICATION = [0x0A, 0xBF, 0x94]
-    PREFERENCES = [0xFF, 0xAF, 0x26]
-    SETUP_PARAMETERS = [0x0A, 0xBF, 0x25]
-    STATUS_UPDATE = [0xFF, 0xAF, 0x13]
-    SYSTEM_INFORMATION = [0x0A, 0xBF, 0x24]
-
-    SET_TEMPERATURE = [0x0A, 0xBF, 0x20]
-    SET_TEMPERATURE_UNIT = [0x0A, 0xBF, 0x27, 0x01]
-    SET_TIME = [0x0A, 0xBF, 0x21]
-    SET_WIFI = [0x0A, 0xBF, 0x92]
-
-    TOGGLE_STATE = [0x0A, 0xBF, 0x11]
-    TOGGLE_HEAT_MODE = [*TOGGLE_STATE, 0x51]
-    TOGGLE_TEMPERATURE_RANGE = [*TOGGLE_STATE, 0x50]
-
-    UNKNOWN: list[int] = []
+    UNKNOWN = -1
 
     @classmethod
-    def _missing_(cls, _: object) -> MessageType:
+    def _missing_(cls, _: object) -> SettingsCode:
         """Return default if not found."""
         return cls.UNKNOWN
 

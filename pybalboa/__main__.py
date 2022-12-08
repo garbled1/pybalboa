@@ -97,6 +97,7 @@ async def connect_and_listen(host: str) -> None:
     print()
     print("Please add the above output to issue:")
     print("https://github.com/garbled1/pybalboa/issues/1")
+    print()
 
 
 async def test_controls(spa: SpaClient) -> None:

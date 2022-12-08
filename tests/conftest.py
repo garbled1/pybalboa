@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from pybalboa.client import MESSAGE_DELIMETER_BYTE
-from pybalboa.enums import MessageType2, SettingsCode
+from pybalboa.enums import MessageType, SettingsCode
 from pybalboa.utils import read_one_message
 
 HOST = "localhost"
@@ -90,16 +90,16 @@ class SpaServer:
             try:
                 data = await read_one_message(reader, timeout)
                 self.received_messages.append(data)
-                message_type = MessageType2(data[3])
+                message_type = MessageType(data[3])
             except asyncio.TimeoutError:
-                message_type = MessageType2.STATUS_UPDATE
+                message_type = MessageType.STATUS_UPDATE
 
             message = None
-            if message_type == MessageType2.STATUS_UPDATE:
+            if message_type == MessageType.STATUS_UPDATE:
                 message = self.messages["status_update"]
-            elif message_type == MessageType2.DEVICE_PRESENT:
+            elif message_type == MessageType.DEVICE_PRESENT:
                 message = self.messages["module_identification"]
-            elif message_type == MessageType2.SETTINGS_REQUEST:
+            elif message_type == MessageType.REQUEST:
                 settings_code = SettingsCode(data[4])
                 if settings_code == SettingsCode.SYSTEM_INFORMATION:
                     message = self.messages["system_information"]
@@ -109,8 +109,6 @@ class SpaServer:
                     message = self.messages["device_configuration"]
                 elif settings_code == SettingsCode.FILTER_CYCLE:
                     message = self.messages["filter_cycle"]
-            # elif message_type == MessageType.DEVICE_PRESENT:
-            #     message = ""
             if message:
                 print(message)
                 writer.write(

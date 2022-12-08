@@ -14,6 +14,7 @@ from .enums import (
     HeatState,
     LowHighRange,
     MessageType,
+    SettingsCode,
     TemperatureUnit,
     WiFiState,
 )
@@ -33,6 +34,7 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_PORT = 4257
 MESSAGE_DELIMETER_BYTE = b"~"
 MESSAGE_DELIMETER = MESSAGE_DELIMETER_BYTE[0]
+MESSAGE_SEND = [0x0A, 0xBF]
 
 ACCESSIBILITY_TYPE_MAP = {
     16: AccessibilityType.PUMP_LIGHT,
@@ -425,8 +427,7 @@ class SpaClient(EventMixin):
     def _process_message(self, data: bytes) -> None:
         """Process a message."""
         self._last_message_received = utcnow()
-        message_type = MessageType(list(data[1:4]))
-        self._log_message(message_type, data)
+        message_type = self._log_message(data)
         data = data[4:-1]
 
         if message_type == MessageType.STATUS_UPDATE:
@@ -697,11 +698,13 @@ class SpaClient(EventMixin):
         self._system_information_loaded = True
         self._check_configuration_loaded()
 
-    def _log_message(self, message_type: MessageType, data: bytes) -> None:
-        """Log message."""
+    def _log_message(self, data: bytes) -> MessageType:
+        """Log message and return message type."""
+        message_type = MessageType(data[3])
         if self._last_log_mesage != data:
             self._last_log_mesage = data
             _LOGGER.debug("%s -> %s: %s", self._host, message_type.name, data.hex())
+        return message_type
 
     async def request_all_configuration(self, wait: bool = False) -> None:
         """Request the full spa configuration."""
@@ -721,15 +724,21 @@ class SpaClient(EventMixin):
 
     async def request_device_configuration(self) -> None:
         """Request the device configuration."""
-        await self.send_message(MessageType.DEVICE_CONFIGURATION_REQUEST)
+        await self.send_message(
+            MessageType.REQUEST, SettingsCode.DEVICE_CONFIGURATION, 0x00, 0x01
+        )
 
     async def request_fault_log(self, entry: int = 0) -> None:
         """Request the filter cycle."""
-        await self.send_message(MessageType.FAULT_LOG_REQUEST, entry % 256, 0x00)
+        await self.send_message(
+            MessageType.REQUEST, SettingsCode.FAULT_LOG, entry % 256, 0x00
+        )
 
     async def request_filter_cycle(self) -> None:
         """Request the filter cycle."""
-        await self.send_message(MessageType.FILTER_CYCLE_REQUEST)
+        await self.send_message(
+            MessageType.REQUEST, SettingsCode.FILTER_CYCLE, 0x00, 0x00
+        )
 
     async def request_module_identification(self) -> None:
         """Request the module identification."""
@@ -737,11 +746,15 @@ class SpaClient(EventMixin):
 
     async def request_setup_parameters(self) -> None:
         """Request the system information."""
-        await self.send_message(MessageType.SETUP_PARAMETERS_REQUEST)
+        await self.send_message(
+            MessageType.REQUEST, SettingsCode.SETUP_PARAMETERS, 0x00, 0x00
+        )
 
     async def request_system_information(self) -> None:
         """Request the system information."""
-        await self.send_message(MessageType.SYSTEM_INFORMATION_REQUEST)
+        await self.send_message(
+            MessageType.REQUEST, SettingsCode.SYSTEM_INFORMATION, 0x00, 0x00
+        )
 
     async def send_device_present(self) -> None:
         """Send a device present message."""
@@ -755,7 +768,8 @@ class SpaClient(EventMixin):
             return
         if not message_type:
             message_type = MessageType.UNKNOWN
-        message_data = [*message_type.value, *message]
+        prefix = [*MESSAGE_SEND, message_type.value] if message_type else []
+        message_data = [*prefix, *message]
         message_length = len(message_data) + 2
         data = bytearray(message_length + 2)
         data[0] = MESSAGE_DELIMETER
@@ -764,7 +778,15 @@ class SpaClient(EventMixin):
         data[-2] = calculate_checksum(data[1:message_length])
         data[-1] = MESSAGE_DELIMETER
 
-        _LOGGER.debug("%s <- %s: %s", self._host, message_type.name, data[1:-1].hex())
+        _LOGGER.debug(
+            "%s <- %s%s: %s",
+            self._host,
+            message_type.name,
+            f"_{SettingsCode(data[5]).name}"
+            if message_type == MessageType.REQUEST
+            else "",
+            data[1:-1].hex(),
+        )
         try:
             assert self._writer
             self._writer.write(data)
@@ -844,11 +866,11 @@ class SpaClient(EventMixin):
         """Set the temperature range."""
         if self._temperature_range == temperature_range:
             return
-        await self.send_message(MessageType.TOGGLE_TEMPERATURE_RANGE)
+        await self.send_message(MessageType.TOGGLE_STATE, 0x50)
 
     async def set_temperature_unit(self, unit: TemperatureUnit) -> None:
         """Set the temperature unit."""
-        await self.send_message(MessageType.SET_TEMPERATURE_UNIT, unit.value)
+        await self.send_message(MessageType.SET_TEMPERATURE_UNIT, 0x01, unit.value)
 
     async def set_time(
         self, hour: int, minute: int, is_24_hour: bool | None = None
