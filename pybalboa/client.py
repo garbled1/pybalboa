@@ -128,7 +128,7 @@ class SpaClient(EventMixin):
     @property
     def connected(self) -> bool:
         """Return `True` if the client is connected."""
-        if self._writer is None or self._disconnect:
+        if self._writer is None:
             return False
         return self._writer.transport.is_reading()  # type: ignore
 
@@ -399,16 +399,15 @@ class SpaClient(EventMixin):
 
     async def disconnect(self) -> None:
         """Disconnect from the spa."""
-        self._disconnect = True
-        if not self.connected:
-            _LOGGER.debug("%s -- not connected", self._host)
-            return
-
         _LOGGER.debug("%s -- disconnect requested", self._host)
+        self._disconnect = True
         await cancel_task(self._connection_monitor)
         if self._writer is not None:
             self._writer.close()
-            await self._writer.wait_closed()
+            try:
+                await self._writer.wait_closed()
+            except Exception as ex:
+                pass
         await cancel_task(self._listener)
         self._reader = self._writer = None
         _LOGGER.debug("%s -- disconnected", self._host)
@@ -432,6 +431,7 @@ class SpaClient(EventMixin):
                 _LOGGER.error("%s ## %s", self._host, ex)
                 continue
             self._process_message(data)
+        self.emit(EVENT_UPDATE)
         _LOGGER.debug("%s -- stopped listening", self._host)
 
     def _process_message(self, data: bytes) -> None:
