@@ -67,6 +67,7 @@ class SpaClient(EventMixin):
         self._last_message_received: datetime | None = None
         self._last_message_sent: datetime | None = None
 
+        self._disconnect = False
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._connection_monitor: asyncio.Task | None = None
@@ -127,7 +128,7 @@ class SpaClient(EventMixin):
     @property
     def connected(self) -> bool:
         """Return `True` if the client is connected."""
-        if self._writer is None:
+        if self._writer is None or self._disconnect:
             return False
         return self._writer.transport.is_reading()  # type: ignore
 
@@ -351,9 +352,17 @@ class SpaClient(EventMixin):
 
     async def connect(self) -> bool:
         """Connect to the spa."""
+        self._disconnect = False
+        return await self._connect()
+
+    async def _connect(self) -> bool:
+        """Connect to the spa."""
         if self.connected:
             _LOGGER.debug("%s -- already connected", self._host)
             return True
+        if self._disconnect:
+            _LOGGER.debug("%s -- a disconnect request was made", self._host)
+            return False
 
         _LOGGER.debug("%s -- establishing connection", self._host)
         try:
@@ -378,10 +387,10 @@ class SpaClient(EventMixin):
 
             async def _monitor() -> None:
                 attempt = 0
-                while True:
+                while not self._disconnect:
                     while self.connected:
                         await asyncio.sleep(1)
-                    if not await self.connect():
+                    if not await self._connect():
                         await asyncio.sleep(min(1 * 2**attempt + uniform(0, 1), 60))
                         attempt += 1
 
@@ -390,6 +399,7 @@ class SpaClient(EventMixin):
 
     async def disconnect(self) -> None:
         """Disconnect from the spa."""
+        self._disconnect = True
         if not self.connected:
             _LOGGER.debug("%s -- not connected", self._host)
             return
@@ -799,7 +809,7 @@ class SpaClient(EventMixin):
 
     async def __aenter__(self) -> SpaClient:
         """Connect and start listening for messages."""
-        if not await self.connect():
+        if not await self._connect():
             raise SpaConnectionError()
         return self
 
