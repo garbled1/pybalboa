@@ -434,6 +434,7 @@ class SpaClient(EventMixin):
                 continue
             except (asyncio.TimeoutError, asyncio.IncompleteReadError):
                 if not (sent := self._last_message_sent) or sent + wait_time < utcnow():
+                    self.emit(EVENT_UPDATE)
                     await self.send_device_present()
                 continue
             except Exception as ex:  # pylint: disable=broad-except
