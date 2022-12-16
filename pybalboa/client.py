@@ -126,6 +126,13 @@ class SpaClient(EventMixin):
         return self._host
 
     @property
+    def available(self) -> bool:
+        """Return True if the client is connected and available."""
+        if self.connected and self.last_message_received is not None:
+            return self.last_message_received >= utcnow() - timedelta(seconds=15)
+        return False
+
+    @property
     def connected(self) -> bool:
         """Return `True` if the client is connected."""
         if self._writer is None:
@@ -361,7 +368,9 @@ class SpaClient(EventMixin):
             _LOGGER.debug("%s -- already connected", self._host)
             return True
         if self._disconnect:
-            _LOGGER.debug("%s -- a disconnect request was made", self._host)
+            _LOGGER.debug(
+                "%s -- connect skipped due to previous disconnect request", self._host
+            )
             return False
 
         _LOGGER.debug("%s -- establishing connection", self._host)
