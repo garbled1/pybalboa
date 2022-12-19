@@ -292,9 +292,9 @@ class SpaClient(EventMixin):
         return self.get_controls(ControlType.BLOWER)
 
     @property
-    def circulation_pump(self) -> SpaControl:
+    def circulation_pump(self) -> SpaControl | None:
         """Return the circulation pump control."""
-        return self.get_controls(ControlType.CIRCULATION_PUMP)[0]
+        return next(iter(self.get_controls(ControlType.CIRCULATION_PUMP)), None)
 
     @property
     def heat_mode(self) -> SpaControl:
@@ -415,7 +415,7 @@ class SpaClient(EventMixin):
             self._writer.close()
             try:
                 await self._writer.wait_closed()
-            except Exception as ex:
+            except Exception:  # pylint: disable=broad-except
                 pass
         await cancel_task(self._listener)
         self._reader = self._writer = None

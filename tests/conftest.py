@@ -47,6 +47,14 @@ def stil7_spa(
     yield from spa_server(event_loop, unused_tcp_port, "stil7-2017")
 
 
+@pytest.fixture()
+def stil7_spa_no_circ_pump(
+    event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
+) -> Generator[SpaServer, None, None]:
+    """Mock a Stil7 spa without a circulation pump."""
+    yield from spa_server(event_loop, unused_tcp_port, "stil7-no-circ-pump")
+
+
 def spa_server(
     event_loop: asyncio.BaseEventLoop, unused_tcp_port: int, filename: str
 ) -> Generator[SpaServer, None, None]:
