@@ -95,30 +95,35 @@ async def test_mxbp20(mxbp20: SpaServer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_stil7_no_circ(stil7_spa_no_circ_pump: SpaServer) -> None:
+async def test_bp501g1(bp501g1: SpaServer) -> None:
     """Test the spa client."""
-    async with SpaClient(HOST, stil7_spa_no_circ_pump.port) as spa:
+    async with SpaClient(HOST, bp501g1.port) as spa:
         assert spa.connected
         assert await spa.async_configuration_loaded()
         assert spa.configuration_loaded
-        assert spa.pump_count == 1
+        assert spa.pump_count == 2
+
+        assert len(spa.aux) == 0
+        assert len(spa.blowers) == 0
+        assert len(spa.lights) == 1
+        assert len(spa.pumps) == 2
 
         control = spa.pumps[0]
         assert control.name == "Pump 1"
         assert control.state == OffLowHighState.OFF
         assert control.options == list(OffLowHighState)
 
-        control = spa.lights[0]
-        assert control.name == "Light 1"
-        assert control.state == OffOnState.ON
-        assert control.options == list(OffOnState)
-        await control.set_state(OffOnState.OFF)
-        assert stil7_spa_no_circ_pump.received_messages[-1]
-
-        control = spa.lights[1]
-        assert control.name == "Light 2"
+        control = spa.pumps[1]
+        assert control.name == "Pump 2"
         assert control.state == OffOnState.OFF
         assert control.options == list(OffOnState)
+
+        control = spa.lights[0]
+        assert control.name == "Light 1"
+        assert control.state == OffOnState.OFF
+        assert control.options == list(OffOnState)
+        await control.set_state(OffOnState.ON)
+        assert bp501g1.received_messages[-1]
 
         assert spa.circulation_pump is None
 
