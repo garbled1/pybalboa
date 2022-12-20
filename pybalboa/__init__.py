@@ -1,5 +1,5 @@
 """Balboa spa module."""
-__version__ = "1.0.0b0"
+__version__ = "1.0.0b1"
 
 __uri__ = "https://github.com/garbled1/pybalboa"
 __title__ = "pybalboa"

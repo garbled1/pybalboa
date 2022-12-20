@@ -33,7 +33,7 @@ async def connect_and_listen(host: str) -> None:
 
             print("Device configuration")
             print("--------------------")
-            print(f"Circulation pump: {spa.circulation_pump}")
+            print(spa.circulation_pump)
             print(f"Pumps: {[pump.name for pump in spa.pumps]}")
             print(f"Lights: {[light.name for light in spa.lights]}")
             print(f"Aux: {[aux.name for aux in spa.aux]}")
@@ -78,7 +78,7 @@ async def connect_and_listen(host: str) -> None:
             print(f"Heat mode: {spa.heat_mode.state.name}")
             print(f"Heat state: {spa.heat_state.name}")
             print(f"Pump status: {spa.pumps}")
-            print(f"Circulation pump: {spa.circulation_pump}")
+            print(spa.circulation_pump)
             print(f"Light status: {spa.lights}")
             print(f"Mister status: {spa.misters}")
             print(f"Aux status: {spa.aux}")
@@ -152,7 +152,8 @@ async def adjust_control(control: SpaControl, state: IntEnum) -> None:
     """Adjust control state."""
     print(f"Current state: {control.state.name}")
     print(f"  Set to {state.name}")
-    await control.set_state(state)
+    if not await control.set_state(state):
+        return
 
     async def _state_check() -> None:
         while control.state != state:

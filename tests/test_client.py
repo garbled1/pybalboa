@@ -112,6 +112,8 @@ async def test_bp501g1(bp501g1: SpaServer) -> None:
         assert len(spa.lights) == 1
         assert len(spa.pumps) == 2
 
+        assert spa.circulation_pump is None
+
         control = spa.pumps[0]
         assert control.name == "Pump 1"
         assert control.state == OffLowHighState.LOW
@@ -128,8 +130,6 @@ async def test_bp501g1(bp501g1: SpaServer) -> None:
         assert control.options == list(OffOnState)
         await control.set_state(OffOnState.ON)
         assert bp501g1.received_messages[-1]
-
-        assert spa.circulation_pump is None
 
         control = spa.temperature_range
         assert control.name == "Temperature range"

@@ -87,6 +87,7 @@ class SpaControl(EventMixin):
 
         self._name = f"{control_type.value}{'' if index is None else f' {index+1}'}"
         self._code = CONTROL_TYPE_MAP[control_type]
+        self._state_value = UnknownState.UNKNOWN.value
         self._state: IntEnum = UnknownState.UNKNOWN
 
         if isinstance(states, int):
@@ -133,29 +134,35 @@ class SpaControl(EventMixin):
 
     def update(self, state: int) -> None:
         """Update the control's current state."""
-        if self._state != state:
+        if self._state_value != state:
+            self._state_value = state
             self._state = next(
                 (option for option in self._options if option == state),
                 self._options[-1]
-                if self.control_type == ControlType.PUMP
+                if self.control_type == ControlType.PUMP and state >= self._states
                 else UnknownState.UNKNOWN,
             )
             _LOGGER.debug(
-                "%s -- %s is now %s", self._client.host, self.name, self.state.name
+                "%s -- %s is now %s (%s)",
+                self._client.host,
+                self.name,
+                self.state.name,
+                state,
             )
             self.emit(EVENT_UPDATE)
 
-    async def set_state(self, state: int | IntEnum) -> None:
+    async def set_state(self, state: int | IntEnum) -> bool:
         """Set control to state."""
         if state not in self.options:
             _LOGGER.error("Cannot set state to %s", state)
-            return
+            return False
         if self._state == state:
-            return
+            return True
         for _ in range((state - self._state) % self._states):
             await self._client.send_message(
                 MessageType.TOGGLE_STATE, self._code + (self._index or 0)
             )
+        return True
 
 
 class HeatModeSpaControl(SpaControl):
@@ -170,16 +177,17 @@ class HeatModeSpaControl(SpaControl):
             custom_options=[*HeatMode][:2],
         )
 
-    async def set_state(self, state: int | HeatMode) -> None:
+    async def set_state(self, state: int | HeatMode) -> bool:
         """Set control to state."""
         if state not in self.options:
             _LOGGER.error("Cannot set state to %s", state)
-            return
+            return False
         if self._state == state:
-            return
+            return True
         i = 2 if self.state == HeatMode.READY_IN_REST and state == HeatMode.READY else 1
         for _ in range(i):
             await self._client.send_message(MessageType.TOGGLE_STATE, self._code)
+        return True
 
 
 @dataclass
