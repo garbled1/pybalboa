@@ -136,7 +136,9 @@ class SpaControl(EventMixin):
         if self._state != state:
             self._state = next(
                 (option for option in self._options if option == state),
-                UnknownState.UNKNOWN,
+                self._options[-1]
+                if self.control_type == ControlType.PUMP
+                else UnknownState.UNKNOWN,
             )
             _LOGGER.debug(
                 "%s -- %s is now %s", self._client.host, self.name, self.state.name

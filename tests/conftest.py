@@ -24,6 +24,14 @@ def load_spa_from_json(name: str) -> Any:
 
 
 @pytest.fixture()
+def bfbp20s(
+    event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
+) -> Generator[SpaServer, None, None]:
+    """Mock a BFBP20S spa."""
+    yield from spa_server(event_loop, unused_tcp_port, "bfbp20s")
+
+
+@pytest.fixture()
 def bp501g1(
     event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
 ) -> Generator[SpaServer, None, None]:
@@ -44,15 +52,7 @@ def mxbp20(
     event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
 ) -> Generator[SpaServer, None, None]:
     """Mock a MXBP20 spa."""
-    yield from spa_server(event_loop, unused_tcp_port, "MXBP20")
-
-
-@pytest.fixture()
-def stil7_spa(
-    event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
-) -> Generator[SpaServer, None, None]:
-    """Mock a Stil7 spa."""
-    yield from spa_server(event_loop, unused_tcp_port, "stil7-2017")
+    yield from spa_server(event_loop, unused_tcp_port, "mxbp20")
 
 
 def spa_server(

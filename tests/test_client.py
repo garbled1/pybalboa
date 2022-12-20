@@ -12,12 +12,13 @@ HOST = "localhost"
 
 
 @pytest.mark.asyncio
-async def test_stil7(stil7_spa: SpaServer) -> None:
+async def test_bfbp20s(bfbp20s: SpaServer) -> None:
     """Test the spa client."""
-    async with SpaClient(HOST, stil7_spa.port) as spa:
+    async with SpaClient(HOST, bfbp20s.port) as spa:
         assert spa.connected
         assert await spa.async_configuration_loaded()
         assert spa.configuration_loaded
+        assert spa.model == "BFBP20S"
         assert spa.pump_count == 1
 
         control = spa.pumps[0]
@@ -30,7 +31,7 @@ async def test_stil7(stil7_spa: SpaServer) -> None:
         assert control.state == OffOnState.ON
         assert control.options == list(OffOnState)
         await control.set_state(OffOnState.OFF)
-        assert stil7_spa.received_messages[-1]
+        assert bfbp20s.received_messages[-1]
 
         control = spa.lights[1]
         assert control.name == "Light 2"
@@ -61,6 +62,7 @@ async def test_lpi501st(lpi501st: SpaServer) -> None:
         assert spa.connected
         assert await spa.async_configuration_loaded()
         assert spa.configuration_loaded
+        assert spa.model == "LPI501ST"
         assert spa.pump_count == 2
 
         control = spa.pumps[0]
@@ -81,6 +83,7 @@ async def test_mxbp20(mxbp20: SpaServer) -> None:
         assert spa.connected
         assert await spa.async_configuration_loaded()
         assert spa.configuration_loaded
+        assert spa.model == "MXBP20"
         assert spa.pump_count == 2
 
         control = spa.pumps[0]
@@ -101,6 +104,7 @@ async def test_bp501g1(bp501g1: SpaServer) -> None:
         assert spa.connected
         assert await spa.async_configuration_loaded()
         assert spa.configuration_loaded
+        assert spa.model == "BP501G1"
         assert spa.pump_count == 2
 
         assert len(spa.aux) == 0
@@ -110,12 +114,12 @@ async def test_bp501g1(bp501g1: SpaServer) -> None:
 
         control = spa.pumps[0]
         assert control.name == "Pump 1"
-        assert control.state == OffLowHighState.OFF
+        assert control.state == OffLowHighState.LOW
         assert control.options == list(OffLowHighState)
 
         control = spa.pumps[1]
         assert control.name == "Pump 2"
-        assert control.state == OffOnState.OFF
+        assert control.state == OffOnState.ON
         assert control.options == list(OffOnState)
 
         control = spa.lights[0]
