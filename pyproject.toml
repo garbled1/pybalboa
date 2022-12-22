@@ -2,7 +2,7 @@
 name = "pybalboa"
 version = "1.0.0b2"
 description = "Module to communicate with a Balboa spa wifi adapter."
-authors = ["Tim Rightnour <root@garbled.net>","Nathan Spencer <natekspencer@gmail.com>"]
+authors = ["Nathan Spencer <natekspencer@gmail.com>","Tim Rightnour <root@garbled.net>"]
 license = "Apache 2.0"
 readme = "README.rst"
 homepage = "https://github.com/garbled1/pybalboa"

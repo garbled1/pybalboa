@@ -11,7 +11,7 @@ To Install::
 
 To test::
 
-  python3 pybalboa <ip-of-spa-wifi>
+  python3 pybalboa <ip-of-spa-wifi> <debug-flag>
 
 To Use
 ``````
@@ -23,8 +23,6 @@ Minimal example::
   import asyncio
   import pybalboa
 
-  spa = pybalboa.BalboaSpaWifi(spa_host)
-  await spa.connect()
-  asyncio.ensure_future(spa.listen())
-  await spa.disconnect()
+  async with pybalboa.SpaClient(spa_host) as spa:
+    # read/run spa commands
   return

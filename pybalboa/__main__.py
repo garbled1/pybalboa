@@ -12,7 +12,9 @@ except ImportError:
 
 def usage() -> None:
     """Print uage instructions."""
-    print(f"Usage: {sys.argv[0]} <ip/host>")
+    print(f"Usage: {sys.argv[0]} <ip/host> <flag>")
+    print("\tip/host:\tip address of spa (required)")
+    print("\t-d, --debug:\tenable debug logs (optional)")
 
 
 async def connect_and_listen(host: str) -> None:
@@ -93,11 +95,11 @@ async def connect_and_listen(host: str) -> None:
             await test_controls(spa)
     except SpaConnectionError:
         print(f"Failed to connect to spa at {host}")
-
-    print()
-    print("Please add the above output to issue:")
-    print("https://github.com/garbled1/pybalboa/issues/1")
-    print()
+    else:
+        print()
+        print("Please add the above output to issue:")
+        print("https://github.com/garbled1/pybalboa/issues/1")
+        print()
 
 
 async def test_controls(spa: SpaClient) -> None:
