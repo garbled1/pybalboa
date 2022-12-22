@@ -26,3 +26,8 @@ Minimal example::
   async with pybalboa.SpaClient(spa_host) as spa:
     # read/run spa commands
   return
+
+
+Related
+```````
+- https://github.com/ccutrer/balboa_worldwide_app/wiki - invaluable wiki for Balboa module protocol
