@@ -36,7 +36,7 @@ def bp501g1(
     event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
 ) -> Generator[SpaServer, None, None]:
     """Mock a BP501G1 spa."""
-    yield from spa_server(event_loop, unused_tcp_port, "BP501G1")
+    yield from spa_server(event_loop, unused_tcp_port, "bp501g1")
 
 
 @pytest.fixture()
@@ -44,7 +44,7 @@ def lpi501st(
     event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
 ) -> Generator[SpaServer, None, None]:
     """Mock a LPI501ST spa."""
-    yield from spa_server(event_loop, unused_tcp_port, "LPI501ST")
+    yield from spa_server(event_loop, unused_tcp_port, "lpi501st")
 
 
 @pytest.fixture()
