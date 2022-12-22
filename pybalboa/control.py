@@ -158,7 +158,10 @@ class SpaControl(EventMixin):
             return False
         if self._state == state:
             return True
-        for _ in range((state - self._state) % self._states):
+        min_toggle = 1
+        if self._state != UnknownState.UNKNOWN:
+            min_toggle = max((state - self._state) % self._states, 1)
+        for _ in range(min_toggle):
             await self._client.send_message(
                 MessageType.TOGGLE_STATE, self._code + (self._index or 0)
             )
