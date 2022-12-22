@@ -1,0 +1,11 @@
+[run]
+source = pybalboa
+omit = pybalboa/__main__.py
+
+[report]
+exclude_lines =
+    # Re-enable the standard pragma
+    pragma: no cover
+
+    # TYPE_CHECKING is never executed during pytest run    
+    if TYPE_CHECKING:
