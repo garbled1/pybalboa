@@ -24,7 +24,7 @@ mypy = "^0.991"
 flake8 = "^5.0.4"
 pylint = "^2.15.10"
 tox = "^3.26.0"
-pydocstyle = "^6.2.3"
+pydocstyle = "^6.3.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
