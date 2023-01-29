@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pybalboa"
-version = "1.0.0b2"
+version = "1.0.0"
 description = "Module to communicate with a Balboa spa wifi adapter."
 authors = ["Nathan Spencer <natekspencer@gmail.com>","Tim Rightnour <root@garbled.net>"]
 license = "Apache 2.0"
