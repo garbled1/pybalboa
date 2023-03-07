@@ -55,6 +55,14 @@ def mxbp20(
     yield from spa_server(event_loop, unused_tcp_port, "mxbp20")
 
 
+@pytest.fixture()
+def bp6013g1(
+    event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
+) -> Generator[SpaServer, None, None]:
+    """Mock a BP6013G1 spa."""
+    yield from spa_server(event_loop, unused_tcp_port, "bp6013g1")
+
+
 def spa_server(
     event_loop: asyncio.BaseEventLoop, unused_tcp_port: int, filename: str
 ) -> Generator[SpaServer, None, None]:

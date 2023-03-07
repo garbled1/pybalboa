@@ -667,7 +667,7 @@ class SpaClient(EventMixin):
         circulation_pump = (data[13] & 0x03) >> 1
         self._update_control_states(ControlType.CIRCULATION_PUMP, [circulation_pump])
         blower_states = byte_parser(data[13], 1, 2, 2)
-        self._update_control_states(ControlType.MISTER, blower_states)
+        self._update_control_states(ControlType.BLOWER, blower_states)
         mister_states = byte_parser(data[15], count=3)
         self._update_control_states(ControlType.MISTER, mister_states)
         aux_states = byte_parser(data[15], offset=3, count=4)
