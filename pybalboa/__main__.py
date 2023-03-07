@@ -58,7 +58,7 @@ async def connect_and_listen(host: str) -> None:
             print("----------------")
             print(f"Min temps: {spa._low_range}")  # pylint: disable=protected-access
             print(f"Max temps: {spa._high_range}")  # pylint: disable=protected-access
-            print(f"# of pumps: {spa._pump_count}")  # pylint: disable=protected-access
+            print(f"Pump count: {spa.pump_count}")
             print()
 
             print("Filter cycle")
