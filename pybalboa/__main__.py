@@ -5,9 +5,9 @@ import sys
 from enum import IntEnum
 
 try:
-    from . import SpaClient, SpaConnectionError, SpaControl
+    from . import SpaClient, SpaConnectionError, SpaControl, __version__
 except ImportError:
-    from pybalboa import SpaClient, SpaConnectionError, SpaControl
+    from pybalboa import SpaClient, SpaConnectionError, SpaControl, __version__
 
 
 def usage() -> None:
@@ -97,8 +97,10 @@ async def connect_and_listen(host: str) -> None:
         print(f"Failed to connect to spa at {host}")
     else:
         print()
-        print("Please add the above output to issue:")
-        print("https://github.com/garbled1/pybalboa/issues/1")
+        print(
+            "If something is not working as expected, please create an issue and add the above output at:"
+        )
+        print("https://github.com/garbled1/pybalboa/issues/")
         print()
 
 
@@ -177,6 +179,7 @@ if __name__ == "__main__":
     if args > 2 and sys.argv[2] in ("-d", "--debug"):
         logging.basicConfig(level=logging.DEBUG)
 
+    print(f"pybalboa version: {__version__}")
     asyncio.run(connect_and_listen(sys.argv[1]))
 
     sys.exit(0)
