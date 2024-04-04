@@ -32,11 +32,13 @@ async def test_bfbp20s(bfbp20s: SpaServer) -> None:
 
         control = spa.pumps[0]
         assert control.name == "Pump 1"
+        assert isinstance(control.state, OffLowHighState)
         assert control.state == OffLowHighState.OFF
         assert control.options == list(OffLowHighState)
 
         control = spa.lights[0]
         assert control.name == "Light 1"
+        assert isinstance(control.state, OffOnState)
         assert control.state == OffOnState.ON
         assert control.options == list(OffOnState)
         await control.set_state(OffOnState.OFF)
@@ -44,22 +46,26 @@ async def test_bfbp20s(bfbp20s: SpaServer) -> None:
 
         control = spa.lights[1]
         assert control.name == "Light 2"
+        assert isinstance(control.state, OffOnState)
         assert control.state == OffOnState.OFF
         assert control.options == list(OffOnState)
 
         assert spa.circulation_pump
         control = spa.circulation_pump
         assert control.name == "Circulation pump"
+        assert isinstance(control.state, OffOnState)
         assert control.state == OffOnState.ON
         assert control.options == list(OffOnState)
 
         control = spa.temperature_range
         assert control.name == "Temperature range"
+        assert isinstance(control.state, LowHighRange)
         assert control.state == LowHighRange.HIGH
         assert control.options == list(LowHighRange)
 
         control = spa.heat_mode
         assert control.name == "Heat mode"
+        assert isinstance(control.state, HeatMode)
         assert control.state == HeatMode.READY
         assert control.options == list(HeatMode)[:2]
 
@@ -78,11 +84,13 @@ async def test_lpi501st(lpi501st: SpaServer) -> None:
 
         control = spa.pumps[0]
         assert control.name == "Pump 1"
+        assert isinstance(control.state, OffLowHighState)
         assert control.state == OffLowHighState.OFF
         assert control.options == list(OffLowHighState)
 
         control = spa.pumps[1]
         assert control.name == "Pump 2"
+        assert isinstance(control.state, OffOnState)
         assert control.state == OffOnState.OFF
         assert control.options == list(OffOnState)
 
@@ -99,11 +107,13 @@ async def test_mxbp20(mxbp20: SpaServer) -> None:
 
         control = spa.pumps[0]
         assert control.name == "Pump 1"
+        assert isinstance(control.state, OffLowHighState)
         assert control.state == OffLowHighState.OFF
         assert control.options == list(OffLowHighState)
 
         control = spa.pumps[1]
         assert control.name == "Pump 2"
+        assert isinstance(control.state, OffLowHighState)
         assert control.state == OffLowHighState.OFF
         assert control.options == list(OffLowHighState)
 
@@ -129,16 +139,19 @@ async def test_bp501g1(bp501g1: SpaServer) -> None:
 
         control = spa.pumps[0]
         assert control.name == "Pump 1"
+        assert isinstance(control.state, OffLowHighState)
         assert control.state == OffLowHighState.LOW
         assert control.options == list(OffLowHighState)
 
         control = spa.pumps[1]
         assert control.name == "Pump 2"
+        assert isinstance(control.state, OffOnState)
         assert control.state == OffOnState.ON
         assert control.options == list(OffOnState)
 
         control = spa.lights[0]
         assert control.name == "Light 1"
+        assert isinstance(control.state, OffOnState)
         assert control.state == OffOnState.OFF
         assert control.options == list(OffOnState)
         await control.set_state(OffOnState.ON)
@@ -146,11 +159,13 @@ async def test_bp501g1(bp501g1: SpaServer) -> None:
 
         control = spa.temperature_range
         assert control.name == "Temperature range"
+        assert isinstance(control.state, LowHighRange)
         assert control.state == LowHighRange.HIGH
         assert control.options == list(LowHighRange)
 
         control = spa.heat_mode
         assert control.name == "Heat mode"
+        assert isinstance(control.state, HeatMode)
         assert control.state == HeatMode.READY
         assert control.options == list(HeatMode)[:2]
 
@@ -178,11 +193,13 @@ async def test_bp6013g1(bp6013g1: SpaServer) -> None:
 
         control = spa.pumps[0]
         assert control.name == "Pump 1"
+        assert isinstance(control.state, OffOnState)
         assert control.state == OffOnState.OFF
         assert control.options == list(OffOnState)
 
         control = spa.lights[0]
         assert control.name == "Light 1"
+        assert isinstance(control.state, OffOnState)
         assert control.state == OffOnState.ON
         assert control.options == list(OffOnState)
         await control.set_state(OffOnState.OFF)
@@ -190,6 +207,7 @@ async def test_bp6013g1(bp6013g1: SpaServer) -> None:
 
         control = spa.blowers[0]
         assert control.name == "Blower 1"
+        assert isinstance(control.state, OffOnState)
         assert control.state == OffOnState.OFF
         assert control.options == list(OffOnState)
         await control.set_state(OffOnState.ON)
@@ -197,10 +215,12 @@ async def test_bp6013g1(bp6013g1: SpaServer) -> None:
 
         control = spa.temperature_range
         assert control.name == "Temperature range"
+        assert isinstance(control.state, LowHighRange)
         assert control.state == LowHighRange.HIGH
         assert control.options == list(LowHighRange)
 
         control = spa.heat_mode
         assert control.name == "Heat mode"
+        assert isinstance(control.state, HeatMode)
         assert control.state == HeatMode.READY
         assert control.options == list(HeatMode)[:2]
