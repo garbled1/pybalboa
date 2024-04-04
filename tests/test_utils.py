@@ -1,4 +1,5 @@
 """Tests module."""
+
 import asyncio
 
 from pybalboa.utils import (

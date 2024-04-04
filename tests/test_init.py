@@ -1,4 +1,5 @@
 """Tests module."""
+
 from pybalboa import __version__
 
 
