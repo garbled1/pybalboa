@@ -1,4 +1,5 @@
 """Balboa spa control."""
+
 from __future__ import annotations
 
 import logging
@@ -187,7 +188,7 @@ class HeatModeSpaControl(SpaControl):
             return False
         if self._state == state:
             return True
-        i = 2 if self.state == HeatMode.READY_IN_REST and state == HeatMode.READY else 1
+        i = 2 if self.state == HeatMode.READY_IN_REST and state == HeatMode.READY else 1  # type: ignore
         for _ in range(i):
             await self._client.send_message(MessageType.TOGGLE_STATE, self._code)
         return True

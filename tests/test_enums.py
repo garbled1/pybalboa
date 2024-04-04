@@ -1,4 +1,5 @@
 """Tests module."""
+
 from pybalboa.enums import MessageType, SettingsCode
 
 
