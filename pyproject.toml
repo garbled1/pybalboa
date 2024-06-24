@@ -3,12 +3,15 @@ name = "pybalboa"
 version = "1.0.1"
 description = "Module to communicate with a Balboa spa wifi adapter."
 authors = ["Nathan Spencer <natekspencer@gmail.com>","Tim Rightnour <root@garbled.net>"]
-license = "Apache 2.0"
 readme = "README.rst"
 homepage = "https://github.com/garbled1/pybalboa"
 repository = "https://github.com/garbled1/pybalboa"
 keywords = ["Balboa", "spa", "hot tub", "asynchronous"]
 include = ["pybalboa/py.typed"]
+classifiers = [
+  "License :: OSI Approved :: Apache Software License",
+]
+
 
 [tool.poetry.dependencies]
 python = "^3.8.1"
