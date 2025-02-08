@@ -9,6 +9,7 @@ from random import uniform
 from typing import Any, Callable, cast
 
 from .control import EVENT_UPDATE, EventMixin, FaultLog, HeatModeSpaControl, SpaControl
+from .discovery import async_discover
 from .enums import (
     AccessibilityType,
     ControlType,
@@ -50,9 +51,7 @@ class SpaClient(EventMixin):
     """Spa client."""
 
     def __init__(
-        self,
-        host: str,
-        port: int = DEFAULT_PORT,
+        self, host: str, port: int = DEFAULT_PORT, *, mac_address: str | None = None
     ) -> None:
         """Initialize a spa client."""
         self._host = host
@@ -83,7 +82,7 @@ class SpaClient(EventMixin):
 
         # module identification
         self._idigi_device_id: str | None = None
-        self._mac_address: str | None = None
+        self._mac_address: str | None = mac_address
 
         # system information
         self._dip_switch: str | None = None
@@ -1034,3 +1033,14 @@ class SpaClient(EventMixin):
     async def set_24_hour_time(self, is_24_hour: bool) -> None:
         """Set the 24-hour time."""
         await self.set_time(self._time_hour, self._time_minute, is_24_hour)
+
+    @classmethod
+    async def discover(
+        cls, return_once_found: bool = False, *, timeout: int = 10
+    ) -> list[SpaClient]:
+        """Discover spas on the network within a specified timeout.
+
+        If return_once_found is True, the first spa found will stop the scan.
+        """
+        spas = await async_discover(return_once_found, timeout=timeout)
+        return [cls(spa.address, mac_address=spa.mac_address) for spa in spas]
