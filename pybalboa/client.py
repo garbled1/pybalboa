@@ -17,6 +17,7 @@ from .enums import (
     LowHighRange,
     MessageType,
     SettingsCode,
+    SpaState,
     TemperatureUnit,
     ToggleItemCode,
     WiFiState,
@@ -109,14 +110,15 @@ class SpaClient(EventMixin):
         self._filter_cycle_2_end: time | None = None
 
         # status update
-        self._time_offset: timedelta = timedelta(0)
         self._accessibility_type: AccessibilityType = AccessibilityType.NONE
         self._filter_cycle_1_running: bool = False
         self._filter_cycle_2_running: bool = False
         self._heat_state: HeatState = HeatState.OFF
         self._is_24_hour: bool = False
+        self._state: SpaState = SpaState.UNKNOWN
         self._time_hour: int = 0
         self._time_minute: int = 0
+        self._time_offset: timedelta = timedelta(0)
         self._temperature_unit: TemperatureUnit = TemperatureUnit.FAHRENHEIT
         self._temperature: float | None = None
         self._target_temperature: float | None = None
@@ -249,6 +251,11 @@ class SpaClient(EventMixin):
     def software_version(self) -> str | None:
         """Return the software version."""
         return self._software_version
+
+    @property
+    def state(self) -> SpaState:
+        """Return the spa state."""
+        return self._state
 
     @property
     def temperature_unit(self) -> TemperatureUnit:
@@ -643,7 +650,8 @@ class SpaClient(EventMixin):
 
         Byte  | Data
         ---------------------------
-        00-01 | ? ?
+        00    | spa state ?
+        01    | initialization mode ?
         02    | current temperature
         03    | current hour
         04    | current minute
@@ -667,6 +675,7 @@ class SpaClient(EventMixin):
             return
 
         self._previous_status = data
+        self._state = SpaState(data[0])
         self._time_hour = data[3]
         self._time_minute = data[4]
         if not reprocess:
