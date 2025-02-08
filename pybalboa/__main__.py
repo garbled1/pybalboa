@@ -132,7 +132,7 @@ async def test_controls(spa: SpaClient) -> None:
             if option not in (state, control.state):
                 await adjust_control(control, option)
         if control.state != state:
-            await adjust_control(control, state)  # type: ignore
+            await adjust_control(control, state)
         print()
 
 
@@ -165,7 +165,7 @@ async def adjust_control(control: SpaControl, state: IntEnum) -> None:
 
     async def _state_check() -> None:
         while control.state != state:
-            await asyncio.sleep(0.1)  # type: ignore
+            await asyncio.sleep(0.1)
 
     wait = 10
     try:
