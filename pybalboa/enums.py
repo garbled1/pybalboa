@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from enum import Enum, IntEnum
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class MessageType(IntEnum):
@@ -76,6 +79,24 @@ class HeatState(IntEnum):
     OFF = 0
     HEATING = 1
     HEAT_WAITING = 2
+
+
+class SpaState(IntEnum):
+    """Spa state."""
+
+    RUNNING = 0x00
+    INITIALIZING = 0x01
+    HOLD_MODE = 0x05
+    AB_TEMPS_ON = 0x14
+    TEST_MODE = 0x17
+
+    UNKNOWN = -1
+
+    @classmethod
+    def _missing_(cls, value: object) -> SpaState:
+        """Handle unknown values by returning UNKNOWN instead of raising an error."""
+        _LOGGER.warning("Received unknown value %s for %s", value, cls.__name__)
+        return cls.UNKNOWN
 
 
 class TemperatureUnit(IntEnum):

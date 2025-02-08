@@ -1,30 +1,44 @@
 """Main entry."""
 
+import argparse
 import asyncio
 import logging
 import sys
 from enum import IntEnum
+from typing import Union
 
 try:
     from . import SpaClient, SpaConnectionError, SpaControl, __version__
+    from .enums import SpaState
 except ImportError:
     from pybalboa import SpaClient, SpaConnectionError, SpaControl, __version__
+    from pybalboa.enums import SpaState
 
 
-def usage() -> None:
-    """Print uage instructions."""
-    print(f"Usage: {sys.argv[0]} <ip/host> <flag>")
-    print("\tip/host:\tip address of spa (required)")
-    print("\t-d, --debug:\tenable debug logs (optional)")
+async def run_discovery(first_spa: bool = True) -> None:
+    """Attempt to discover a spa and try some commands."""
+    spas = await SpaClient.discover(first_spa)
+    for spa in spas:
+        await connect_and_listen(spa=spa)
 
 
-async def connect_and_listen(host: str) -> None:
+async def connect_and_listen(
+    host: Union[str, None] = None, spa: Union[SpaClient, None] = None
+) -> None:
     """Connect to the spa and try some commands."""
     print("******** Testing spa connection and configuration **********")
     try:
-        async with SpaClient(host) as spa:
+        if host:
+            spa = SpaClient(host)
+        if not spa:
+            print("No spa provided")
+            return
+        async with spa:
             if not await spa.async_configuration_loaded():
-                print("Config not loaded, something is wrong!")
+                if spa.state == SpaState.TEST_MODE:
+                    print("Config not loaded, spa is in test mode!")
+                else:
+                    print("Config not loaded, something is wrong!")
                 return
 
             print()
@@ -176,14 +190,31 @@ async def adjust_control(control: SpaControl, state: IntEnum) -> None:
 
 
 if __name__ == "__main__":
-    if (args := len(sys.argv)) < 2:
-        usage()
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Connect to a spa and listen for updates.",
+        usage=f"{sys.argv[0]} [host] [-d | --debug] [--all]",
+    )
+    parser.add_argument("host", nargs="?", help="Spa IP address or hostname (optional)")
+    parser.add_argument(
+        "-d", "--debug", action="store_true", help="Enable debug logging"
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Discover all available spas instead of just the first one.",
+    )
 
-    if args > 2 and sys.argv[2] in ("-d", "--debug"):
+    args = parser.parse_args()
+
+    if args.debug:
         logging.basicConfig(level=logging.DEBUG)
 
     print(f"pybalboa version: {__version__}")
-    asyncio.run(connect_and_listen(sys.argv[1]))
+
+    if args.host:
+        asyncio.run(connect_and_listen(args.host))
+    else:
+        print("No host provided. Running in discovery mode...")
+        asyncio.run(run_discovery(first_spa=not args.all))
 
     sys.exit(0)
