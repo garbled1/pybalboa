@@ -80,46 +80,46 @@ class SpaClient(EventMixin):
         ]
 
         # module identification
-        self._idigi_device_id: str
-        self._mac_address: str
+        self._idigi_device_id: str | None = None
+        self._mac_address: str | None = None
 
         # system information
-        self._dip_switch: str
-        self._configuration_signature: str
-        self._current_setup: int
-        self._heater_type: str
-        self._model: str
-        self._software_version: str
-        self._voltage: int | None
+        self._dip_switch: str | None = None
+        self._configuration_signature: str | None = None
+        self._current_setup: int | None = None
+        self._heater_type: str | None = None
+        self._model: str | None = None
+        self._software_version: str | None = None
+        self._voltage: int | None | None = None
 
         # setup parameters
-        self._low_range: tuple[tuple[int, int], tuple[float, float]]
-        self._high_range: tuple[tuple[int, int], tuple[float, float]]
-        self._pump_count: int
+        self._low_range: tuple[tuple[int, int], tuple[float, float]] | None = None
+        self._high_range: tuple[tuple[int, int], tuple[float, float]] | None = None
+        self._pump_count: int = 0
 
         # filter cycle
-        self._filter_cycle_1_start: time
-        self._filter_cycle_1_duration: timedelta
-        self._filter_cycle_2_enabled: bool
-        self._filter_cycle_2_start: time
-        self._filter_cycle_2_duration: timedelta
+        self._filter_cycle_1_start: time | None = None
+        self._filter_cycle_1_duration: timedelta = timedelta()
+        self._filter_cycle_2_enabled: bool = False
+        self._filter_cycle_2_start: time | None = None
+        self._filter_cycle_2_duration: timedelta = timedelta()
 
         # status update
-        self._accessibility_type: AccessibilityType
-        self._filter_cycle_1_running: bool
-        self._filter_cycle_2_running: bool
-        self._heat_state: HeatState
-        self._is_24_hour: bool
-        self._time_hour: int
-        self._time_minute: int
-        self._temperature_unit: TemperatureUnit
-        self._temperature: float | None
-        self._target_temperature: float
-        self._temperature_range: int
-        self._wifi_state: WiFiState
+        self._accessibility_type: AccessibilityType = AccessibilityType.NONE
+        self._filter_cycle_1_running: bool = False
+        self._filter_cycle_2_running: bool = False
+        self._heat_state: HeatState = HeatState.OFF
+        self._is_24_hour: bool = False
+        self._time_hour: int = 0
+        self._time_minute: int = 0
+        self._temperature_unit: TemperatureUnit = TemperatureUnit.FAHRENHEIT
+        self._temperature: float | None = None
+        self._target_temperature: float | None = None
+        self._temperature_range: int = 0
+        self._wifi_state: WiFiState | None = None
 
         # fault log
-        self._fault: FaultLog
+        self._fault: FaultLog | None = None
 
     @property
     def host(self) -> str:
@@ -146,7 +146,7 @@ class SpaClient(EventMixin):
         return self._last_message_received
 
     @property
-    def configuration_signature(self) -> str:
+    def configuration_signature(self) -> str | None:
         """Return the configuration signature."""
         return self._configuration_signature
 
@@ -156,17 +156,17 @@ class SpaClient(EventMixin):
         return self._controls
 
     @property
-    def current_setup(self) -> int:
+    def current_setup(self) -> int | None:
         """Return the current setup."""
         return self._current_setup
 
     @property
-    def dip_switch(self) -> str:
+    def dip_switch(self) -> str | None:
         """Return the dip switch settings."""
         return self._dip_switch
 
     @property
-    def filter_cycle_1_start(self) -> time:
+    def filter_cycle_1_start(self) -> time | None:
         """Return filter cycle 1 start time."""
         return self._filter_cycle_1_start
 
@@ -186,7 +186,7 @@ class SpaClient(EventMixin):
         return self._filter_cycle_2_enabled
 
     @property
-    def filter_cycle_2_start(self) -> time:
+    def filter_cycle_2_start(self) -> time | None:
         """Return filter cycle 2 start time."""
         return self._filter_cycle_2_start
 
@@ -206,22 +206,22 @@ class SpaClient(EventMixin):
         return self._heat_state
 
     @property
-    def heater_type(self) -> str:
+    def heater_type(self) -> str | None:
         """Return the heater type."""
         return self._heater_type
 
     @property
-    def idigi_device_id(self) -> str:
+    def idigi_device_id(self) -> str | None:
         """Return the iDigi Device Id."""
         return self._idigi_device_id
 
     @property
-    def mac_address(self) -> str:
+    def mac_address(self) -> str | None:
         """Return the mac address."""
         return self._mac_address
 
     @property
-    def model(self) -> str:
+    def model(self) -> str | None:
         """Return the model."""
         return self._model
 
@@ -231,7 +231,7 @@ class SpaClient(EventMixin):
         return self._pump_count
 
     @property
-    def software_version(self) -> str:
+    def software_version(self) -> str | None:
         """Return the software version."""
         return self._software_version
 
@@ -246,19 +246,23 @@ class SpaClient(EventMixin):
         return self._temperature
 
     @property
-    def target_temperature(self) -> float:
+    def target_temperature(self) -> float | None:
         """Return the target temperature."""
         return self._target_temperature
 
     @property
-    def temperature_minimum(self) -> float:
+    def temperature_minimum(self) -> float | None:
         """Return the temperature minimum."""
+        if None in (self._low_range, self._high_range):
+            return None
         valid_temps = (self._low_range, self._high_range)[self._temperature_range]
         return valid_temps[self._temperature_unit][0]
 
     @property
-    def temperature_maximum(self) -> float:
+    def temperature_maximum(self) -> float | None:
         """Return the temperature maximum."""
+        if None in (self._low_range, self._high_range):
+            return None
         valid_temps = (self._low_range, self._high_range)[self._temperature_range]
         return valid_temps[self._temperature_unit][1]
 
@@ -856,16 +860,28 @@ class SpaClient(EventMixin):
             return
 
         message = [0] * 8
-        message[0] = default(filter_cycle_1_hour, self.filter_cycle_1_start.hour)
-        message[1] = default(filter_cycle_1_minute, self.filter_cycle_1_start.minute)
+        message[0] = default(
+            filter_cycle_1_hour,
+            self.filter_cycle_1_start.hour if self.filter_cycle_1_start else None,
+        )
+        message[1] = default(
+            filter_cycle_1_minute,
+            self.filter_cycle_1_start.minute if self.filter_cycle_1_start else None,
+        )
         old_duration = int(self.filter_cycle_1_duration.seconds / 60)
         message[2] = default(filter_cycle_1_duration_hours, int(old_duration / 60))
         message[3] = default(filter_cycle_1_duration_minutes, old_duration % 60)
         enabled = default(filter_cycle_2_enabled, self.filter_cycle_2_enabled) << 7
         message[4] = enabled | (
-            default(filter_cycle_2_hour, self.filter_cycle_2_start.hour)
+            default(
+                filter_cycle_2_hour,
+                self.filter_cycle_2_start.hour if self.filter_cycle_2_start else None,
+            )
         )
-        message[5] = default(filter_cycle_2_minute, self.filter_cycle_2_start.minute)
+        message[5] = default(
+            filter_cycle_2_minute,
+            self.filter_cycle_2_start.minute if self.filter_cycle_2_start else None,
+        )
         old_duration = int(self.filter_cycle_2_duration.seconds / 60)
         message[6] = default(filter_cycle_2_duration_hours, int(old_duration / 60))
         message[7] = default(filter_cycle_2_duration_minutes, old_duration % 60)
@@ -876,6 +892,7 @@ class SpaClient(EventMixin):
     async def set_temperature(self, temperature: float) -> None:
         """Set the target temperature."""
         valid_temps = (self._low_range, self._high_range)[self._temperature_range]
+        assert valid_temps
         low, high = valid_temps[self._temperature_unit]
         if not low <= temperature <= high:
             err = f"temperature must be in {low}..{high}"

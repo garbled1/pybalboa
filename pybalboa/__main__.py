@@ -111,6 +111,9 @@ async def test_controls(spa: SpaClient) -> None:
     print()
     print("Temperature control")
     print("-------------------")
+    assert spa.target_temperature is not None
+    assert spa.temperature_maximum is not None
+    assert spa.temperature_minimum is not None
     target_temperature = spa.target_temperature
     await adjust_temperature(
         spa,
