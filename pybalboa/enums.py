@@ -85,6 +85,32 @@ class TemperatureUnit(IntEnum):
     CELSIUS = 1
 
 
+class ToggleItemCode(IntEnum):
+    """Toggle item code."""
+
+    NORMAL_OPERATION = 0x01
+    CLEAR_NOTIFICATION = 0x03
+    PUMP_1 = 0x04
+    PUMP_2 = 0x05
+    PUMP_3 = 0x06
+    PUMP_4 = 0x07
+    PUMP_5 = 0x08
+    PUMP_6 = 0x09
+    BLOWER = 0x0C
+    MISTER = 0x0E
+    LIGHT_1 = 0x11
+    LIGHT_2 = 0x12
+    LIGHT_3 = 0x13
+    LIGHT_4 = 0x14
+    AUX_1 = 0x16
+    AUX_2 = 0x17
+    SOAK_MODE = 0x1D
+    HOLD_MODE = 0x3C
+    CIRCULATION_PUMP = 0x3D
+    TEMPERATURE_RANGE = 0x50
+    HEAT_MODE = 0x51
+
+
 class WiFiState(IntEnum):
     """Wi-Fi state."""
 

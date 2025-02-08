@@ -16,6 +16,7 @@ from .enums import (
     OffLowHighState,
     OffLowMediumHighState,
     OffOnState,
+    ToggleItemCode,
     UnknownState,
 )
 
@@ -26,14 +27,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 CONTROL_TYPE_MAP = {
-    ControlType.PUMP: 0x04,
-    ControlType.BLOWER: 0x0C,
-    ControlType.MISTER: 0x0E,
-    ControlType.LIGHT: 0x11,
-    ControlType.AUX: 0x16,
-    ControlType.CIRCULATION_PUMP: 0x3D,
-    ControlType.TEMPERATURE_RANGE: 0x50,
-    ControlType.HEAT_MODE: 0x51,
+    ControlType.PUMP: ToggleItemCode.PUMP_1,
+    ControlType.BLOWER: ToggleItemCode.BLOWER,
+    ControlType.MISTER: ToggleItemCode.MISTER,
+    ControlType.LIGHT: ToggleItemCode.LIGHT_1,
+    ControlType.AUX: ToggleItemCode.AUX_1,
+    ControlType.CIRCULATION_PUMP: ToggleItemCode.CIRCULATION_PUMP,
+    ControlType.TEMPERATURE_RANGE: ToggleItemCode.TEMPERATURE_RANGE,
+    ControlType.HEAT_MODE: ToggleItemCode.HEAT_MODE,
 }
 STATE_OPTIONS_MAP: dict[int, list[IntEnum]] = {
     2: list(OffOnState),
