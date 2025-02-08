@@ -86,7 +86,7 @@ class SpaControl(EventMixin):
         self._control_type = control_type
         self._index = index
 
-        self._name = f"{control_type.value}{'' if index is None else f' {index+1}'}"
+        self._name = f"{control_type.value}{'' if index is None else f' {index + 1}'}"
         self._code = CONTROL_TYPE_MAP[control_type]
         self._state_value = UnknownState.UNKNOWN.value
         self._state: IntEnum = UnknownState.UNKNOWN
