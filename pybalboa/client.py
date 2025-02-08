@@ -18,6 +18,7 @@ from .enums import (
     MessageType,
     SettingsCode,
     TemperatureUnit,
+    ToggleItemCode,
     WiFiState,
 )
 from .exceptions import SpaConnectionError, SpaMessageError
@@ -1011,7 +1012,9 @@ class SpaClient(EventMixin):
         """Set the temperature range."""
         if self._temperature_range == temperature_range:
             return
-        await self.send_message(MessageType.TOGGLE_STATE, 0x50)
+        await self.send_message(
+            MessageType.TOGGLE_STATE, ToggleItemCode.TEMPERATURE_RANGE
+        )
 
     async def set_temperature_unit(self, unit: TemperatureUnit) -> None:
         """Set the temperature unit."""
