@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
 from typing import Any
 
 from .exceptions import SpaMessageError
@@ -44,6 +44,19 @@ def calculate_checksum(data: bytes) -> int:
     return crc ^ 0x02
 
 
+def calculate_time(base_time: time | None, duration: timedelta | None) -> time | None:
+    """Calculate the time after adding a duration to a base time."""
+    if base_time is None:
+        return None
+    duration = duration or timedelta()
+    return (datetime.combine(datetime.now(), base_time) + duration).time()
+
+
+def calculate_time_difference(start: time, end: time) -> int:
+    """Calculate the difference (in minutes) between a start and end time."""
+    return ((end.hour - start.hour) * 60 + (end.minute - start.minute)) % (24 * 60)
+
+
 async def cancel_task(task: asyncio.Task | None) -> None:
     """Cancel a task."""
     if task is not None and not task.done():
@@ -54,9 +67,11 @@ async def cancel_task(task: asyncio.Task | None) -> None:
             pass
 
 
-def default(value: Any, default_value: Any) -> Any:
+def default(value: Any, default_value: Any | Callable[[], Any]) -> Any:
     """Return value if not None, else default."""
-    return default_value if value is None else value
+    if value is not None:
+        return value
+    return default_value() if callable(default_value) else default_value
 
 
 async def read_one_message(reader: asyncio.StreamReader, timeout: int = 15) -> bytes:

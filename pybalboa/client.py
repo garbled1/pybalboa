@@ -6,7 +6,7 @@ import asyncio
 import logging
 from datetime import datetime, time, timedelta
 from random import uniform
-from typing import Any
+from typing import Any, Callable, cast
 
 from .control import EVENT_UPDATE, EventMixin, FaultLog, HeatModeSpaControl, SpaControl
 from .enums import (
@@ -23,6 +23,8 @@ from .exceptions import SpaConnectionError, SpaMessageError
 from .utils import (
     byte_parser,
     calculate_checksum,
+    calculate_time,
+    calculate_time_difference,
     cancel_task,
     default,
     read_one_message,
@@ -100,9 +102,11 @@ class SpaClient(EventMixin):
         # filter cycle
         self._filter_cycle_1_start: time | None = None
         self._filter_cycle_1_duration: timedelta = timedelta()
+        self._filter_cycle_1_end: time | None = None
         self._filter_cycle_2_enabled: bool = False
         self._filter_cycle_2_start: time | None = None
         self._filter_cycle_2_duration: timedelta = timedelta()
+        self._filter_cycle_2_end: time | None = None
 
         # status update
         self._accessibility_type: AccessibilityType = AccessibilityType.NONE
@@ -176,6 +180,11 @@ class SpaClient(EventMixin):
         return self._filter_cycle_1_duration
 
     @property
+    def filter_cycle_1_end(self) -> time | None:
+        """Return filter cycle 1 end time."""
+        return self._filter_cycle_1_end
+
+    @property
     def filter_cycle_1_running(self) -> bool:
         """Return `True` if filter cycle 1 is running."""
         return self._filter_cycle_1_running
@@ -194,6 +203,11 @@ class SpaClient(EventMixin):
     def filter_cycle_2_duration(self) -> timedelta:
         """Return filter cycle 2 duration."""
         return self._filter_cycle_2_duration
+
+    @property
+    def filter_cycle_2_end(self) -> time | None:
+        """Return filter cycle 2 end time."""
+        return self._filter_cycle_2_end
 
     @property
     def filter_cycle_2_running(self) -> bool:
@@ -559,13 +573,19 @@ class SpaClient(EventMixin):
         06    | filter cycle 2 duration hours
         07    | filter cycle 2 duration minutes
         """
-        start = (datetime.min + timedelta(hours=data[0], minutes=data[1])).time()
-        self._filter_cycle_1_start = start
+        self._filter_cycle_1_start = time(data[0], data[1])
         self._filter_cycle_1_duration = timedelta(hours=data[2], minutes=data[3])
+        self._filter_cycle_1_end = calculate_time(
+            self._filter_cycle_1_start, self._filter_cycle_1_duration
+        )
+
         self._filter_cycle_2_enabled = bool(data[4] >> 7)
-        start = (datetime.min + timedelta(hours=data[4] & 0x7F, minutes=data[5])).time()
-        self._filter_cycle_2_start = start
+        self._filter_cycle_2_start = time(data[4] & 0x7F, data[5])
         self._filter_cycle_2_duration = timedelta(hours=data[6], minutes=data[7])
+        self._filter_cycle_2_end = calculate_time(
+            self._filter_cycle_2_start, self._filter_cycle_2_duration
+        )
+
         self._filter_cycle_loaded = True
         self._check_configuration_loaded()
 
@@ -834,6 +854,73 @@ class SpaClient(EventMixin):
         """Disconnect."""
         await self.disconnect()
 
+    async def configure_filter_cycle(
+        self,
+        filter_cycle: int,
+        *,
+        start: time | None = None,
+        end: time | None = None,
+        duration: timedelta | None = None,
+        enabled: bool | None = None,
+    ) -> None:
+        """Configure a filter cycle."""
+        if filter_cycle not in (1, 2):
+            raise ValueError(f"Invalid filter cycle: {filter_cycle} (expected 1 or 2)")
+        if not any((start, end, duration, enabled)):
+            raise ValueError(
+                "At least one of start, end, duration, or enabled must be provided"
+            )
+        if duration and end:
+            raise ValueError("Only one of end or duration should be provided")
+        if filter_cycle == 1:
+            if not any((start, end, duration)):
+                raise ValueError(
+                    "Filter cycle 1 requires at least one of start, end, or duration"
+                )
+            if enabled is False:
+                raise ValueError("Filter cycle 1 cannot be disabled")
+        if duration is not None and not timedelta(minutes=15) <= duration <= timedelta(
+            hours=24
+        ):
+            raise ValueError(
+                f"Invalid duration: {duration} (must be between 15 minutes and 24 hours)"
+            )
+
+        start = start or getattr(self, f"filter_cycle_{filter_cycle}_start")
+        if start is None:
+            raise ValueError("A valid start time could not be determined")
+
+        if end is None:
+            if duration is None:
+                end = getattr(self, f"filter_cycle_{filter_cycle}_end")
+            else:
+                end = calculate_time(start, duration)
+
+        if end is None:
+            raise ValueError("A valid end time/duration could not be determined")
+
+        # 1440 = 24 hours
+        minutes = 1440 if start == end else calculate_time_difference(start, end)
+
+        if not 15 <= minutes <= 1440:  # one more sanity check
+            raise ValueError(
+                f"Invalid duration: {timedelta(minutes=minutes)} (must be between 15 minutes and 24 hours)"
+            )
+
+        duration_hours, duration_minutes = divmod(minutes, 60)
+
+        params: dict[str, Any] = {
+            f"filter_cycle_{filter_cycle}_hour": start.hour,
+            f"filter_cycle_{filter_cycle}_minute": start.minute,
+            f"filter_cycle_{filter_cycle}_duration_hours": duration_hours,
+            f"filter_cycle_{filter_cycle}_duration_minutes": duration_minutes,
+        }
+
+        if filter_cycle == 2 and enabled is not None:
+            params["filter_cycle_2_enabled"] = enabled
+
+        await self.set_filter_cycle(**params)
+
     async def set_filter_cycle(
         self,
         filter_cycle_1_hour: int | None = None,
@@ -861,32 +948,32 @@ class SpaClient(EventMixin):
         if all(value is None for value in values):
             return
 
-        message = [0] * 8
-        message[0] = default(
-            filter_cycle_1_hour,
-            self.filter_cycle_1_start.hour if self.filter_cycle_1_start else None,
-        )
-        message[1] = default(
-            filter_cycle_1_minute,
-            self.filter_cycle_1_start.minute if self.filter_cycle_1_start else None,
-        )
-        old_duration = int(self.filter_cycle_1_duration.seconds / 60)
-        message[2] = default(filter_cycle_1_duration_hours, int(old_duration / 60))
-        message[3] = default(filter_cycle_1_duration_minutes, old_duration % 60)
+        old_cycle_1_duration = divmod(self.filter_cycle_1_duration.seconds // 60, 60)
+        old_cycle_2_duration = divmod(self.filter_cycle_2_duration.seconds // 60, 60)
         enabled = default(filter_cycle_2_enabled, self.filter_cycle_2_enabled) << 7
-        message[4] = enabled | (
-            default(
-                filter_cycle_2_hour,
-                self.filter_cycle_2_start.hour if self.filter_cycle_2_start else None,
-            )
-        )
-        message[5] = default(
-            filter_cycle_2_minute,
-            self.filter_cycle_2_start.minute if self.filter_cycle_2_start else None,
-        )
-        old_duration = int(self.filter_cycle_2_duration.seconds / 60)
-        message[6] = default(filter_cycle_2_duration_hours, int(old_duration / 60))
-        message[7] = default(filter_cycle_2_duration_minutes, old_duration % 60)
+
+        def _time_attr(_prop: str, _attr: str) -> int | Callable[[], int]:
+            def getter() -> int:
+                if (_time := getattr(self, _prop, None)) is None:
+                    raise ValueError(
+                        f"Unable to get {_attr} from {_prop} because it is {_time}"
+                    )
+                return cast(int, getattr(_time, _attr))
+
+            return getter
+
+        # fmt: off
+        message = [
+            default(filter_cycle_1_hour, _time_attr("filter_cycle_1_start", "hour")),
+            default(filter_cycle_1_minute, _time_attr("filter_cycle_1_start", "minute")),
+            default(filter_cycle_1_duration_hours, old_cycle_1_duration[0]),
+            default(filter_cycle_1_duration_minutes, old_cycle_1_duration[1]),
+            enabled | default(filter_cycle_2_hour, _time_attr("filter_cycle_2_start", "hour")),
+            default(filter_cycle_2_minute, _time_attr("filter_cycle_2_start", "minute")),
+            default(filter_cycle_2_duration_hours, old_cycle_2_duration[0]),
+            default(filter_cycle_2_duration_minutes, old_cycle_2_duration[1]),
+        ]
+        # fmt: on
 
         await self.send_message(MessageType.FILTER_CYCLE, *message)
         await self.request_filter_cycle()
