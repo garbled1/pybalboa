@@ -560,7 +560,7 @@ class SpaClient(EventMixin):
         08    | sensor A temperature
         09    | sensor B temperature
         """
-        self._fault = FaultLog(*data, current_time=self.get_current_time())
+        self._fault = FaultLog(*(*data, self.get_current_time()))
 
     def _parse_filter_cycle(self, data: bytes) -> None:
         """Parse a filter cycle message.
