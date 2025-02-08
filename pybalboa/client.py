@@ -109,6 +109,7 @@ class SpaClient(EventMixin):
         self._filter_cycle_2_end: time | None = None
 
         # status update
+        self._time_offset: timedelta = timedelta(0)
         self._accessibility_type: AccessibilityType = AccessibilityType.NONE
         self._filter_cycle_1_running: bool = False
         self._filter_cycle_2_running: bool = False
@@ -353,6 +354,10 @@ class SpaClient(EventMixin):
         """Return `True` if the configuration is loaded."""
         return self._configuration_loaded.is_set()
 
+    def get_current_time(self) -> datetime:
+        """Return the current time."""
+        return datetime.now() + self._time_offset
+
     async def async_configuration_loaded(self, timeout: float = 15) -> bool:
         """Wait for configuration to complete."""
         if self.configuration_loaded:
@@ -555,7 +560,7 @@ class SpaClient(EventMixin):
         08    | sensor A temperature
         09    | sensor B temperature
         """
-        self._fault = FaultLog(*data)
+        self._fault = FaultLog(*(*data, self.get_current_time()))
 
     def _parse_filter_cycle(self, data: bytes) -> None:
         """Parse a filter cycle message.
@@ -664,6 +669,10 @@ class SpaClient(EventMixin):
         self._previous_status = data
         self._time_hour = data[3]
         self._time_minute = data[4]
+        if not reprocess:
+            now = datetime.now()
+            device_time = now.replace(hour=self._time_hour, minute=self._time_minute)
+            self._time_offset = device_time - now
         self._is_24_hour = (flag := data[9]) & 0x02 != 0
         if flag & 0x01 == 0:
             self._temperature_unit = TemperatureUnit.FAHRENHEIT
@@ -777,8 +786,16 @@ class SpaClient(EventMixin):
             MessageType.REQUEST, SettingsCode.DEVICE_CONFIGURATION, 0x00, 0x01
         )
 
-    async def request_fault_log(self, entry: int = 0) -> None:
-        """Request the filter cycle."""
+    async def request_fault_log(self, entry: int = 0xFF) -> None:
+        """Request a fault log entry.
+
+        entry: The fault log to retrieve, 0..23 or 0xFF (255) for the last fault
+        """
+        if not 0 <= entry < 24 and entry != 0xFF:
+            raise ValueError(
+                f"Invalid fault log entry: {entry} (expected 0–23 or 0xFF for the last fault)"
+            )
+
         await self.send_message(
             MessageType.REQUEST, SettingsCode.FAULT_LOG, entry % 256, 0x00
         )
