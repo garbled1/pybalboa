@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import InitVar, dataclass, field
+from datetime import datetime, time, timedelta
 from enum import IntEnum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 from .enums import (
     ControlType,
@@ -41,6 +42,28 @@ STATE_OPTIONS_MAP: dict[int, list[IntEnum]] = {
 }
 
 EVENT_UPDATE = "update"
+
+FAULT_LOG_ERROR_CODES: Final[dict[int, str]] = {
+    15: "Sensors are out of sync",
+    16: "The water flow is low",
+    17: "The water flow has failed",
+    18: "The settings have been reset",
+    19: "Priming Mode",
+    20: "The clock has failed",
+    21: "The settings have been reset",
+    22: "Program memory failure",
+    26: "Sensors are out of sync -- Call for service",
+    27: "The heater is dry",
+    28: "The heater may be dry",
+    29: "The water is too hot",
+    30: "The heater is too hot",
+    31: "Sensor A Fault",
+    32: "Sensor B Fault",
+    34: "A pump may be stuck on",
+    35: "Hot fault",
+    36: "The GFCI test failed",
+    37: "Standby Mode (Hold Mode)",
+}
 
 
 class EventMixin:
@@ -208,3 +231,27 @@ class FaultLog:
     target_temperature: int
     sensor_a_temperature: int
     sensor_b_temperature: int
+
+    current_time: InitVar[datetime | None] = None
+    fault_datetime: datetime = field(init=False)
+
+    def __post_init__(self, current_time: datetime | None) -> None:
+        """Compute the fault datetime on initialization."""
+        self.fault_datetime = datetime.combine(
+            (current_time or datetime.now()) - timedelta(days=self.days_ago),
+            time(self.time_hour, self.time_minute),
+        )
+
+    def __str__(self) -> str:
+        """Return str(self)."""
+        return (
+            f"Fault log {self.entry_number + 1}/{self.count}: {self.message} "
+            f"occurred on {self.fault_datetime:%Y-%m-%d at %H:%M}"
+        )
+
+    @property
+    def message(self) -> str:
+        """Return the message for the error code."""
+        return FAULT_LOG_ERROR_CODES.get(
+            self.message_code, f"Unknown ({self.message_code})"
+        )
