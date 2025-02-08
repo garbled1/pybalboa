@@ -256,6 +256,7 @@ class SpaClient(EventMixin):
         if None in (self._low_range, self._high_range):
             return None
         valid_temps = (self._low_range, self._high_range)[self._temperature_range]
+        assert valid_temps
         return valid_temps[self._temperature_unit][0]
 
     @property
@@ -264,6 +265,7 @@ class SpaClient(EventMixin):
         if None in (self._low_range, self._high_range):
             return None
         valid_temps = (self._low_range, self._high_range)[self._temperature_range]
+        assert valid_temps
         return valid_temps[self._temperature_unit][1]
 
     @property
