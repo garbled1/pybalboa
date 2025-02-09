@@ -173,6 +173,11 @@ class SpaClient(EventMixin):
         return self._dip_switch
 
     @property
+    def fault(self) -> FaultLog | None:
+        """Return the last received fault."""
+        return self._fault
+
+    @property
     def filter_cycle_1_start(self) -> time | None:
         """Return filter cycle 1 start time."""
         return self._filter_cycle_1_start
