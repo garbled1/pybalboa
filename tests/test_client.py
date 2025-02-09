@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import time, timedelta
+
 import pytest
 
 from pybalboa import SpaClient
@@ -224,3 +226,43 @@ async def test_bp6013g1(bp6013g1: SpaServer) -> None:
         assert isinstance(control.state, HeatMode)
         assert control.state == HeatMode.READY
         assert control.options == list(HeatMode)[:2]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("error", "method", "params"),
+    [
+        (ValueError, "configure_filter_cycle", {"filter_cycle": 3}),
+        (ValueError, "configure_filter_cycle", {"filter_cycle": 1}),
+        (
+            ValueError,
+            "configure_filter_cycle",
+            {"filter_cycle": 1, "end": time(), "duration": timedelta(hours=1)},
+        ),
+        (
+            ValueError,
+            "configure_filter_cycle",
+            {"filter_cycle": 1, "start": time(), "enabled": False},
+        ),
+        (ValueError, "configure_filter_cycle", {"filter_cycle": 1, "enabled": True}),
+        (
+            ValueError,
+            "configure_filter_cycle",
+            {"filter_cycle": 1, "duration": timedelta(minutes=5)},
+        ),
+        (ValueError, "request_fault_log", {"entry": -1}),
+        (ValueError, "request_fault_log", {"entry": 25}),
+        (ValueError, "set_temperature", {"temperature": 0}),
+        (ValueError, "set_time", {"hour": 45, "minute": 0}),
+    ],
+)
+async def test_client_errors(
+    bfbp20s: SpaServer, error: Exception, method: str, params: dict | None
+) -> None:
+    """Test the spa client."""
+    async with SpaClient(HOST, bfbp20s.port) as spa:
+        assert spa.connected
+        assert await spa.async_configuration_loaded()
+
+        with pytest.raises(error):
+            await getattr(spa, method)(**(params or {}))
