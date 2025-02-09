@@ -6,7 +6,7 @@ import asyncio
 import logging
 from datetime import datetime, time, timedelta
 from random import uniform
-from typing import Any, Callable, cast
+from typing import Any, Callable, TypeVar, cast
 
 from .control import EVENT_UPDATE, EventMixin, FaultLog, HeatModeSpaControl, SpaControl
 from .discovery import async_discover
@@ -22,7 +22,11 @@ from .enums import (
     ToggleItemCode,
     WiFiState,
 )
-from .exceptions import SpaConnectionError, SpaMessageError
+from .exceptions import (
+    SpaConfigurationNotLoadedError,
+    SpaConnectionError,
+    SpaMessageError,
+)
 from .utils import (
     byte_parser,
     calculate_checksum,
@@ -36,6 +40,7 @@ from .utils import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+_T = TypeVar("_T")
 
 DEFAULT_PORT = 4257
 MESSAGE_DELIMETER_BYTE = b"~"
@@ -96,8 +101,14 @@ class SpaClient(EventMixin):
         self._voltage: int | None | None = None
 
         # setup parameters
-        self._low_range: tuple[tuple[int, int], tuple[float, float]] | None = None
-        self._high_range: tuple[tuple[int, int], tuple[float, float]] | None = None
+        self._low_range: tuple[tuple[int, int], tuple[float, float]] = (
+            (50, 99),
+            (10.0, 37.0),
+        )
+        self._high_range: tuple[tuple[int, int], tuple[float, float]] = (
+            (80, 104),
+            (26.5, 40.0),
+        )
         self._pump_count: int = 0
 
         # filter cycle
@@ -127,6 +138,12 @@ class SpaClient(EventMixin):
 
         # fault log
         self._fault: FaultLog | None = None
+
+    def _require_configured(self, value: _T | None) -> _T:
+        """Ensure the given value is set before returning it, otherwise raise an error."""
+        if value is None:
+            raise SpaConfigurationNotLoadedError
+        return value
 
     @property
     def host(self) -> str:
@@ -238,14 +255,14 @@ class SpaClient(EventMixin):
         return self._idigi_device_id
 
     @property
-    def mac_address(self) -> str | None:
-        """Return the mac address."""
-        return self._mac_address
+    def mac_address(self) -> str:
+        """Return the MAC address."""
+        return self._require_configured(self._mac_address)
 
     @property
-    def model(self) -> str | None:
+    def model(self) -> str:
         """Return the model."""
-        return self._model
+        return self._require_configured(self._model)
 
     @property
     def pump_count(self) -> int:
@@ -273,26 +290,20 @@ class SpaClient(EventMixin):
         return self._temperature
 
     @property
-    def target_temperature(self) -> float | None:
+    def target_temperature(self) -> float:
         """Return the target temperature."""
-        return self._target_temperature
+        return self._require_configured(self._target_temperature)
 
     @property
-    def temperature_minimum(self) -> float | None:
+    def temperature_minimum(self) -> float:
         """Return the temperature minimum."""
-        if None in (self._low_range, self._high_range):
-            return None
         valid_temps = (self._low_range, self._high_range)[self._temperature_range]
-        assert valid_temps
         return valid_temps[self._temperature_unit][0]
 
     @property
-    def temperature_maximum(self) -> float | None:
+    def temperature_maximum(self) -> float:
         """Return the temperature maximum."""
-        if None in (self._low_range, self._high_range):
-            return None
         valid_temps = (self._low_range, self._high_range)[self._temperature_range]
-        assert valid_temps
         return valid_temps[self._temperature_unit][1]
 
     @property
@@ -1012,12 +1023,11 @@ class SpaClient(EventMixin):
     async def set_temperature(self, temperature: float) -> None:
         """Set the target temperature."""
         valid_temps = (self._low_range, self._high_range)[self._temperature_range]
-        assert valid_temps
         low, high = valid_temps[self._temperature_unit]
         if not low <= temperature <= high:
-            err = f"temperature must be in {low}..{high}"
-            _LOGGER.error("%s ## set temperature failed: %s", self._host, err)
-            return
+            raise ValueError(
+                f"Invalid temperature: {temperature} (expected {low}..{high})"
+            )
         if self._temperature_unit == TemperatureUnit.CELSIUS:
             temperature *= 2
         await self.send_message(MessageType.SET_TEMPERATURE, int(temperature))
@@ -1041,8 +1051,7 @@ class SpaClient(EventMixin):
         try:
             time(hour, minute)
         except ValueError as err:
-            _LOGGER.error("%s ## set time failed: %s", self._host, err)
-            return
+            raise ValueError(f"Invalid time format: {hour}:{minute}") from err
         if is_24_hour is None:
             is_24_hour = self._is_24_hour
         await self.send_message(MessageType.SET_TIME, (is_24_hour << 7) | hour, minute)
