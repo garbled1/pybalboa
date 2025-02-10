@@ -908,14 +908,14 @@ class SpaClient(EventMixin):
         """Configure a filter cycle."""
         if filter_cycle not in (1, 2):
             raise ValueError(f"Invalid filter cycle: {filter_cycle} (expected 1 or 2)")
-        if not any((start, end, duration, enabled)):
+        if all(value is None for value in (start, end, duration, enabled)):
             raise ValueError(
                 "At least one of start, end, duration, or enabled must be provided"
             )
-        if duration and end:
+        if duration is not None and end is not None:
             raise ValueError("Only one of end or duration should be provided")
         if filter_cycle == 1:
-            if not any((start, end, duration)):
+            if all(value is None for value in (start, end, duration)):
                 raise ValueError(
                     "Filter cycle 1 requires at least one of start, end, or duration"
                 )

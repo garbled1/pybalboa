@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import time, timedelta
+from unittest.mock import patch
 
 import pytest
 
@@ -10,8 +11,10 @@ from pybalboa import SpaClient
 from pybalboa.enums import (
     HeatMode,
     LowHighRange,
+    MessageType,
     OffLowHighState,
     OffOnState,
+    SettingsCode,
     TemperatureUnit,
 )
 
@@ -70,6 +73,29 @@ async def test_bfbp20s(bfbp20s: SpaServer) -> None:
         assert isinstance(control.state, HeatMode)
         assert control.state == HeatMode.READY
         assert control.options == list(HeatMode)[:2]
+
+        with patch("pybalboa.client.SpaClient.send_message") as send_message:
+            await spa.configure_filter_cycle(
+                1, start=time(1, 30), duration=timedelta(hours=3, minutes=15)
+            )
+            # validate a configure filter cycle message was awaited
+            expected_message = [MessageType.FILTER_CYCLE, 1, 30, 3, 15, 135, 0, 1, 5]
+            send_message.assert_any_await(*expected_message)
+            # validate a request filter cycle message was awaited
+            send_message.assert_any_await(
+                MessageType.REQUEST, SettingsCode.FILTER_CYCLE, 0x00, 0x00
+            )
+
+            send_message.reset_mock()
+            await spa.configure_filter_cycle(
+                2,
+                start=time(13, 15),
+                duration=timedelta(hours=3, minutes=45),
+                enabled=False,
+            )
+            # validate a configure filter cycle message was awaited
+            expected_message = [MessageType.FILTER_CYCLE, 19, 0, 2, 0, 13, 15, 3, 45]
+            send_message.assert_any_await(*expected_message)
 
 
 @pytest.mark.asyncio
@@ -230,39 +256,65 @@ async def test_bp6013g1(bp6013g1: SpaServer) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("error", "method", "params"),
+    ("error", "error_message", "method", "params"),
     [
-        (ValueError, "configure_filter_cycle", {"filter_cycle": 3}),
-        (ValueError, "configure_filter_cycle", {"filter_cycle": 1}),
         (
             ValueError,
+            "Invalid filter cycle",
+            "configure_filter_cycle",
+            {"filter_cycle": None},
+        ),
+        (
+            ValueError,
+            "Invalid filter cycle",
+            "configure_filter_cycle",
+            {"filter_cycle": 3},
+        ),
+        (ValueError, "At least one of", "configure_filter_cycle", {"filter_cycle": 1}),
+        (
+            ValueError,
+            "Only one of",
             "configure_filter_cycle",
             {"filter_cycle": 1, "end": time(), "duration": timedelta(hours=1)},
         ),
         (
             ValueError,
+            "Filter cycle 1 cannot be disabled",
             "configure_filter_cycle",
             {"filter_cycle": 1, "start": time(), "enabled": False},
         ),
-        (ValueError, "configure_filter_cycle", {"filter_cycle": 1, "enabled": True}),
         (
             ValueError,
+            "Filter cycle 1 requires",
+            "configure_filter_cycle",
+            {"filter_cycle": 1, "enabled": True},
+        ),
+        (
+            ValueError,
+            "Invalid duration",
+            "configure_filter_cycle",
+            {"filter_cycle": 1, "duration": timedelta()},
+        ),
+        (
+            ValueError,
+            "Invalid duration",
             "configure_filter_cycle",
             {"filter_cycle": 1, "duration": timedelta(minutes=5)},
         ),
-        (ValueError, "request_fault_log", {"entry": -1}),
-        (ValueError, "request_fault_log", {"entry": 25}),
-        (ValueError, "set_temperature", {"temperature": 0}),
-        (ValueError, "set_time", {"hour": 45, "minute": 0}),
+        (ValueError, "Invalid fault log entry", "request_fault_log", {"entry": -1}),
+        (ValueError, "Invalid fault log entry", "request_fault_log", {"entry": 25}),
+        (ValueError, "Invalid temperature", "set_temperature", {"temperature": 0}),
+        (ValueError, "Invalid time", "set_time", {"hour": 45, "minute": 0}),
     ],
 )
 async def test_client_errors(
-    bfbp20s: SpaServer, error: Exception, method: str, params: dict | None
+    bfbp20s: SpaServer,
+    error: Exception,
+    error_message: str,
+    method: str,
+    params: dict | None,
 ) -> None:
     """Test the spa client."""
     async with SpaClient(HOST, bfbp20s.port) as spa:
-        assert spa.connected
-        assert await spa.async_configuration_loaded()
-
-        with pytest.raises(error):
+        with pytest.raises(error, match=error_message):
             await getattr(spa, method)(**(params or {}))
