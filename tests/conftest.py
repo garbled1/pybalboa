@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
-from collections.abc import Generator
+from collections.abc import AsyncGenerator, Callable
 from typing import Any
 
 import pytest
@@ -25,71 +26,93 @@ def load_spa_from_json(name: str) -> Any:
 
 
 @pytest.fixture()
-def bfbp20s(
-    event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
-) -> Generator[SpaServer, None, None]:
+async def bfbp20s(
+    spa_server: Callable[[int, str], AsyncGenerator[SpaServer, None]],
+    unused_tcp_port: int,
+) -> AsyncGenerator[SpaServer, None]:
     """Mock a BFBP20S spa."""
-    yield from spa_server(event_loop, unused_tcp_port, "bfbp20s")
+    async for server in spa_server(unused_tcp_port, "bfbp20s"):
+        yield server
 
 
 @pytest.fixture()
-def bp501g1(
-    event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
-) -> Generator[SpaServer, None, None]:
+async def bp501g1(
+    spa_server: Callable[[int, str], AsyncGenerator[SpaServer, None]],
+    unused_tcp_port: int,
+) -> AsyncGenerator[SpaServer, None]:
     """Mock a BP501G1 spa."""
-    yield from spa_server(event_loop, unused_tcp_port, "bp501g1")
+    async for server in spa_server(unused_tcp_port, "bp501g1"):
+        yield server
 
 
 @pytest.fixture()
-def lpi501st(
-    event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
-) -> Generator[SpaServer, None, None]:
+async def lpi501st(
+    spa_server: Callable[[int, str], AsyncGenerator[SpaServer, None]],
+    unused_tcp_port: int,
+) -> AsyncGenerator[SpaServer, None]:
     """Mock a LPI501ST spa."""
-    yield from spa_server(event_loop, unused_tcp_port, "lpi501st")
+    async for server in spa_server(unused_tcp_port, "lpi501st"):
+        yield server
 
 
 @pytest.fixture()
-def mxbp20(
-    event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
-) -> Generator[SpaServer, None, None]:
+async def mxbp20(
+    spa_server: Callable[[int, str], AsyncGenerator[SpaServer, None]],
+    unused_tcp_port: int,
+) -> AsyncGenerator[SpaServer, None]:
     """Mock a MXBP20 spa."""
-    yield from spa_server(event_loop, unused_tcp_port, "mxbp20")
+    async for server in spa_server(unused_tcp_port, "mxbp20"):
+        yield server
 
 
 @pytest.fixture()
-def bp6013g1(
-    event_loop: asyncio.BaseEventLoop, unused_tcp_port: int
-) -> Generator[SpaServer, None, None]:
+async def bp6013g1(
+    spa_server: Callable[[int, str], AsyncGenerator[SpaServer, None]],
+    unused_tcp_port: int,
+) -> AsyncGenerator[SpaServer, None]:
     """Mock a BP6013G1 spa."""
-    yield from spa_server(event_loop, unused_tcp_port, "bp6013g1")
+    async for server in spa_server(unused_tcp_port, "bp6013g1"):
+        yield server
 
 
-def spa_server(
-    event_loop: asyncio.BaseEventLoop, unused_tcp_port: int, filename: str
-) -> Generator[SpaServer, None, None]:
-    """Generate a server with an unused tcp port."""
-    messages = load_spa_from_json(filename)
-    spa = SpaServer(unused_tcp_port, messages)
-    task = asyncio.ensure_future(spa.start_server(), loop=event_loop)
-    event_loop.run_until_complete(asyncio.sleep(0.01))
+@pytest.fixture(name="spa_server")
+def spa_server_factory() -> Callable[[int, str], AsyncGenerator[SpaServer, None]]:
+    """
+    Provides a factory that creates and starts a SpaServer for a given fixture name and port.
 
-    try:
-        yield spa
-    finally:
-        task.cancel()
+    Returns:
+        A factory function accepting (unused_tcp_port, fixture_name) and yielding a started SpaServer instance.
+    """
+
+    async def _factory(
+        unused_tcp_port: int, fixture_name: str
+    ) -> AsyncGenerator[SpaServer, None]:
+        messages = load_spa_from_json(fixture_name)
+        spa = SpaServer(unused_tcp_port, messages)
+        task = asyncio.create_task(spa.start_server())
+        await asyncio.sleep(0.01)
+
+        try:
+            yield spa
+        finally:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+    return _factory
 
 
 class SpaServer:
-    """Spa server."""
+    """Test server that simulates a spa device."""
 
     def __init__(self, port: int, messages: dict[str, str]) -> None:
-        """Initialize a spa server."""
+        """Initialize the spa server."""
         self.port = port
         self.messages = messages
         self.received_messages: list[bytes] = []
 
     async def start_server(self) -> None:
-        """Start the server."""
+        """Start the async TCP server."""
         server = await asyncio.start_server(self.handle_message, HOST, self.port)
 
         addr = server.sockets[0].getsockname()
@@ -101,7 +124,7 @@ class SpaServer:
     async def handle_message(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
-        """Handle a message."""
+        """Handle incoming messages from the client."""
         timeout = 1
         while True:
             try:
@@ -118,14 +141,8 @@ class SpaServer:
                 message = self.messages["module_identification"]
             elif message_type == MessageType.REQUEST:
                 settings_code = SettingsCode(data[4])
-                if settings_code == SettingsCode.SYSTEM_INFORMATION:
-                    message = self.messages["system_information"]
-                elif settings_code == SettingsCode.SETUP_PARAMETERS:
-                    message = self.messages["setup_parameters"]
-                elif settings_code == SettingsCode.DEVICE_CONFIGURATION:
-                    message = self.messages["device_configuration"]
-                elif settings_code == SettingsCode.FILTER_CYCLE:
-                    message = self.messages["filter_cycle"]
+                message = self.messages.get(settings_code.name.lower())
+
             if message:
                 print(message)
                 writer.write(
