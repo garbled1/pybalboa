@@ -140,7 +140,7 @@ class SpaServer:
         silent_from_start:
             Accept the TCP connection but never send a byte. Simulates the
             BWA 50350 pathology where a zombie handshake is treated as
-            success by pre-1.1.0 clients.
+            success.
         silent_after:
             Behave normally until ``silent_after`` seconds after the
             connection is accepted, then stop responding to anything.

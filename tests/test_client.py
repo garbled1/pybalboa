@@ -321,11 +321,6 @@ async def test_client_errors(
             await getattr(spa, method)(**(params or {}))
 
 
-# ---------------------------------------------------------------------------
-# Resilience options (opt-in, additive kwargs)
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_require_first_frame_rejects_zombie(
     bfbp20s_silent: SpaServer,
@@ -391,7 +386,7 @@ async def test_stale_teardown_closes_zombie_socket(
 
 @pytest.mark.asyncio
 async def test_default_kwargs_preserve_legacy_behavior(bfbp20s: SpaServer) -> None:
-    """Constructing SpaClient without new kwargs matches pre-1.1.0 defaults."""
+    """Constructing SpaClient without new kwargs."""
     spa = SpaClient(HOST, bfbp20s.port)
     assert spa._stale_after is None
     assert spa._require_first_frame is False

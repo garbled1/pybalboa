@@ -44,6 +44,7 @@ _LOGGER = logging.getLogger(__name__)
 _T = TypeVar("_T")
 
 DEFAULT_PORT = 4257
+DEFAULT_READ_TIMEOUT = 15
 MESSAGE_DELIMETER_BYTE = b"~"
 MESSAGE_DELIMETER = MESSAGE_DELIMETER_BYTE[0]
 MESSAGE_SEND = [0x0A, 0xBF]
@@ -74,31 +75,28 @@ class SpaClient(EventMixin):
     ) -> None:
         """Initialize a spa client.
 
-        Resilience options (all opt-in; defaults preserve historical behavior):
+        Resilience options (all opt-in):
 
         stale_after:
             If set, length in seconds of one silence window used to detect a
             zombie socket. After ``max_stale_windows`` consecutive windows with
             no data received (despite send_device_present pings), the writer is
             closed so the connection monitor can reconnect. ``None`` disables
-            this tear-down entirely — matches pre-1.1.0 behavior.
+            this tear-down entirely.
         max_stale_windows:
             Number of consecutive silent windows tolerated before tear-down.
             Only meaningful when ``stale_after`` is set.
         require_first_frame:
             If True, ``connect()`` waits for the first spa frame to arrive
             before declaring success. Modules that accept the TCP handshake
-            but never send data (BWA 50350 pathology) are rejected instead of
+            but never send data are rejected instead of
             treated as connected.
         first_frame_timeout:
             Seconds to wait for the first frame when ``require_first_frame`` is
-            True. Defaults to 15 (matches the existing listener read timeout).
+            True. Defaults to 15.
         backoff_initial, backoff_factor, backoff_max:
             Reconnect backoff parameters used by the internal monitor after
-            a failed reconnect attempt. Delay grows as
-            ``min(backoff_initial * backoff_factor ** attempt + jitter,
-            backoff_max)`` seconds. Defaults match the pre-1.1.0 formula
-            ``min(1 * 2**attempt + jitter, 60)``.
+            a failed reconnect attempt.
         """
         super().__init__()
         self._host = host
@@ -514,7 +512,11 @@ class SpaClient(EventMixin):
         torn down so the caller can back off and retry.
         """
         assert self._reader is not None
-        timeout = int(self._first_frame_timeout) if self._first_frame_timeout else 15
+        timeout = (
+            int(self._first_frame_timeout)
+            if self._first_frame_timeout
+            else DEFAULT_READ_TIMEOUT
+        )
         try:
             data = await read_one_message(self._reader, timeout)
         except (
@@ -564,7 +566,11 @@ class SpaClient(EventMixin):
 
     async def _start_listener(self) -> None:
         """Start the listener."""
-        timeout = int(self._stale_after) if self._stale_after is not None else 15
+        timeout = (
+            int(self._stale_after)
+            if self._stale_after is not None
+            else DEFAULT_READ_TIMEOUT
+        )
         tear_down_enabled = self._stale_after is not None
         wait_time = timedelta(seconds=timeout)
         silent_windows = 0
@@ -592,14 +598,7 @@ class SpaClient(EventMixin):
                             silent_windows,
                             timeout,
                         )
-                        if self._writer is not None:
-                            try:
-                                self._writer.close()
-                            except Exception:  # pylint: disable=broad-except # noqa: BLE001
-                                _LOGGER.debug(
-                                    "%s -- ignored error closing zombie socket",
-                                    self._host,
-                                )
+                        await self._teardown_zombie()
                         break
                 continue
             except Exception as ex:  # pylint: disable=broad-except # noqa: BLE001
