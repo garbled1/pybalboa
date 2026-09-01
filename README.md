@@ -56,13 +56,11 @@ spa = pybalboa.SpaClient(
     # 1) Hard tear-down after N silent windows with no ping response.
     #    Silence window length = stale_after seconds. Default None disables.
     stale_after=30,
-    max_stale_windows=3,          # → tear down after ~90s of silence
-
+    max_stale_windows=3,  # → tear down after ~90s of silence
     # 2) Reject connections that never produce a spa frame.
     #    A "zombie" TCP handshake raises instead of being treated as success.
     require_first_frame=True,
-    first_frame_timeout=15,       # seconds; falls back to 15 if None
-
+    first_frame_timeout=15,  # seconds; falls back to 15 if None
     # 3) Tune the built-in reconnect backoff.
     #    Delay = min(initial * factor**attempt + jitter, max)  seconds.
     #    Defaults reproduce the historical min(1 * 2**attempt + jitter, 60).
