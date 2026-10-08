@@ -520,7 +520,7 @@ class SpaClient(EventMixin):
         try:
             data = await read_one_message(self._reader, timeout)
         except (
-            asyncio.TimeoutError,
+            TimeoutError,
             asyncio.IncompleteReadError,
             SpaMessageError,
             OSError,
