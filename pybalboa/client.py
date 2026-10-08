@@ -44,6 +44,7 @@ _LOGGER = logging.getLogger(__name__)
 _T = TypeVar("_T")
 
 DEFAULT_PORT = 4257
+DEFAULT_READ_TIMEOUT = 15
 MESSAGE_DELIMETER_BYTE = b"~"
 MESSAGE_DELIMETER = MESSAGE_DELIMETER_BYTE[0]
 MESSAGE_SEND = [0x0A, 0xBF]
@@ -59,12 +60,55 @@ class SpaClient(EventMixin):
     """Spa client."""
 
     def __init__(
-        self, host: str, port: int = DEFAULT_PORT, *, mac_address: str | None = None
+        self,
+        host: str,
+        port: int = DEFAULT_PORT,
+        *,
+        mac_address: str | None = None,
+        stale_after: float | None = None,
+        max_stale_windows: int = 3,
+        require_first_frame: bool = False,
+        first_frame_timeout: float | None = None,
+        backoff_initial: float = 1.0,
+        backoff_factor: float = 2.0,
+        backoff_max: float = 60.0,
     ) -> None:
-        """Initialize a spa client."""
+        """Initialize a spa client.
+
+        Resilience options (all opt-in):
+
+        stale_after:
+            If set, length in seconds of one silence window used to detect a
+            zombie socket. After ``max_stale_windows`` consecutive windows with
+            no data received (despite send_device_present pings), the writer is
+            closed so the connection monitor can reconnect. ``None`` disables
+            this tear-down entirely.
+        max_stale_windows:
+            Number of consecutive silent windows tolerated before tear-down.
+            Only meaningful when ``stale_after`` is set.
+        require_first_frame:
+            If True, ``connect()`` waits for the first spa frame to arrive
+            before declaring success. Modules that accept the TCP handshake
+            but never send data are rejected instead of
+            treated as connected.
+        first_frame_timeout:
+            Seconds to wait for the first frame when ``require_first_frame`` is
+            True. Defaults to 15.
+        backoff_initial, backoff_factor, backoff_max:
+            Reconnect backoff parameters used by the internal monitor after
+            a failed reconnect attempt.
+        """
         super().__init__()
         self._host = host
         self._port = port
+
+        self._stale_after = stale_after
+        self._max_stale_windows = max_stale_windows
+        self._require_first_frame = require_first_frame
+        self._first_frame_timeout = first_frame_timeout
+        self._backoff_initial = backoff_initial
+        self._backoff_factor = backoff_factor
+        self._backoff_max = backoff_max
 
         self._device_configuration_loaded = False
         self._filter_cycle_loaded = False
@@ -436,6 +480,8 @@ class SpaClient(EventMixin):
             _LOGGER.error("%s ## error connecting: %s", self._host, ex)
         else:
             _LOGGER.debug("%s -- connected", self._host)
+            if self._require_first_frame and not await self._await_first_frame():
+                return False
             self._listener = asyncio.ensure_future(self._start_listener())
             asyncio.ensure_future(self.request_all_configuration(True))
             await cancel_task(self._connection_monitor)
@@ -446,11 +492,62 @@ class SpaClient(EventMixin):
                     while self.connected:
                         await asyncio.sleep(1)
                     if not await self._connect():
-                        await asyncio.sleep(min(1 * 2**attempt + uniform(0, 1), 60))
+                        await asyncio.sleep(
+                            min(
+                                self._backoff_initial * (self._backoff_factor**attempt)
+                                + uniform(0, 1),
+                                self._backoff_max,
+                            )
+                        )
                         attempt += 1
 
             self._connection_monitor = asyncio.ensure_future(_monitor())
         return self.connected
+
+    async def _await_first_frame(self) -> bool:
+        """Read one frame before declaring the connection healthy.
+
+        Returns True on success (frame processed inline; caller continues normal
+        startup). Returns False for a "zombie" TCP handshake — the socket is
+        torn down so the caller can back off and retry.
+        """
+        assert self._reader is not None
+        timeout = (
+            int(self._first_frame_timeout)
+            if self._first_frame_timeout
+            else DEFAULT_READ_TIMEOUT
+        )
+        try:
+            data = await read_one_message(self._reader, timeout)
+        except (
+            TimeoutError,
+            asyncio.IncompleteReadError,
+            SpaMessageError,
+            OSError,
+        ) as err:
+            _LOGGER.error(
+                "%s ## no frame received within %ss (zombie socket): %s",
+                self._host,
+                timeout,
+                err,
+            )
+            await self._teardown_zombie()
+            return False
+        _LOGGER.debug("%s -- first frame received", self._host)
+        self._process_message(data)
+        return True
+
+    async def _teardown_zombie(self) -> None:
+        """Close a connection that never produced a valid spa frame."""
+        writer = self._writer
+        self._reader = self._writer = None
+        if writer is None:
+            return
+        try:
+            writer.close()
+            await writer.wait_closed()
+        except Exception:  # pylint: disable=broad-except # noqa: BLE001
+            _LOGGER.debug("%s -- ignored error closing zombie socket", self._host)
 
     async def disconnect(self) -> None:
         """Disconnect from the spa."""
@@ -469,8 +566,14 @@ class SpaClient(EventMixin):
 
     async def _start_listener(self) -> None:
         """Start the listener."""
-        timeout = 15
+        timeout = (
+            int(self._stale_after)
+            if self._stale_after is not None
+            else DEFAULT_READ_TIMEOUT
+        )
+        tear_down_enabled = self._stale_after is not None
         wait_time = timedelta(seconds=timeout)
+        silent_windows = 0
         assert self._reader
         while self.connected:
             try:
@@ -485,10 +588,23 @@ class SpaClient(EventMixin):
                 ):
                     self.emit(EVENT_UPDATE)
                     await self.send_device_present()
+                if tear_down_enabled:
+                    silent_windows += 1
+                    if silent_windows >= self._max_stale_windows:
+                        _LOGGER.warning(
+                            "%s ## %s consecutive silent windows (%ss each) "
+                            "with no response — tearing down zombie socket",
+                            self._host,
+                            silent_windows,
+                            timeout,
+                        )
+                        await self._teardown_zombie()
+                        break
                 continue
             except Exception as ex:  # pylint: disable=broad-except # noqa: BLE001
                 _LOGGER.error("%s ## %s", self._host, ex)
                 continue
+            silent_windows = 0
             self._process_message(data)
         self.emit(EVENT_UPDATE)
         _LOGGER.debug("%s -- stopped listening", self._host)
