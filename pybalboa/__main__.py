@@ -163,7 +163,7 @@ async def adjust_temperature(spa: SpaClient, temperature: float) -> None:
     try:
         await asyncio.wait_for(_temperature_check(), wait)
         print(f"  Set temperature is now {spa.target_temperature}")
-    except asyncio.TimeoutError:
+    except TimeoutError:
         print(
             f"  Set temperature was not changed after {wait} seconds; is {spa.target_temperature}"
         )
@@ -184,7 +184,7 @@ async def adjust_control(control: SpaControl, state: IntEnum) -> None:
     try:
         await asyncio.wait_for(_state_check(), wait)
         print(f"  State is now {control.state.name}")
-    except asyncio.TimeoutError:
+    except TimeoutError:
         print(f"  State was not changed after {wait} seconds; is {control.state.name}")
 
 

@@ -5,7 +5,7 @@ authors = [
     { name = "Nathan Spencer", email = "natekspencer@gmail.com" },
     { name = "Tim Rightnour", email = "root@garbled.net" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 readme = "README.md"
 keywords = [
     "Balboa",
@@ -15,9 +15,7 @@ keywords = [
 ]
 classifiers = ["License :: OSI Approved :: Apache Software License"]
 dynamic = ["version"]
-dependencies = [
-    "typing-extensions>=4.15.0",
-]
+dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/garbled1/pybalboa"
@@ -31,7 +29,7 @@ dev = [
     "pytest-timeout>=2.1.0,<3",
     "mypy>=1.3,<3",
     "tox>=3.26,<5.0",
-    "ruff>=0.16.0",
+    "ruff>=0.16.10",
     "pre-commit>=4.6.2",
 ]
 

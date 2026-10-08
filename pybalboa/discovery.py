@@ -31,7 +31,7 @@ async def async_discover(
 
     try:
         await asyncio.wait_for(protocol.discovery_complete.wait(), timeout=timeout)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         if not protocol.spas:
             _LOGGER.debug("Discovery timed out")
     finally:
