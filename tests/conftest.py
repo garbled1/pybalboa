@@ -131,7 +131,7 @@ class SpaServer:
                 data = await read_one_message(reader, timeout)
                 self.received_messages.append(data)
                 message_type = MessageType(data[3])
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 message_type = MessageType.STATUS_UPDATE
 
             message = None

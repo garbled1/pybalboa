@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from datetime import datetime, time, timedelta, timezone
+from datetime import UTC, datetime, time, timedelta
 from typing import Any
 
 from .exceptions import SpaMessageError
@@ -107,4 +107,4 @@ def to_celsius(fahrenheit: float) -> float:
 
 def utcnow() -> datetime:
     """Get now in UTC time."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)

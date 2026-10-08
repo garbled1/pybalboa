@@ -7,9 +7,7 @@ import logging
 from collections.abc import Callable
 from datetime import datetime, time, timedelta
 from random import uniform
-from typing import Any, TypeVar, cast
-
-from typing_extensions import Self
+from typing import Any, Self, TypeVar, cast
 
 from .control import EVENT_UPDATE, EventMixin, FaultLog, HeatModeSpaControl, SpaControl
 from .discovery import async_discover
@@ -391,7 +389,7 @@ class SpaClient(EventMixin):
             return True
         try:
             return await asyncio.wait_for(self._configuration_loaded.wait(), timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return False
 
     def _check_configuration_loaded(self) -> None:
@@ -431,13 +429,8 @@ class SpaClient(EventMixin):
             self._reader, self._writer = await asyncio.wait_for(
                 asyncio.open_connection(self._host, self._port), 10
             )
-        except (
-            asyncio.TimeoutError,
-            ConnectionRefusedError,
-            TimeoutError,
-            OSError,
-        ) as err:
-            msg = "Timed out" if isinstance(err, asyncio.TimeoutError) else err
+        except (ConnectionRefusedError, TimeoutError, OSError) as err:
+            msg = "Timed out" if isinstance(err, TimeoutError) else err
             _LOGGER.error("%s ## cannot connect: %s", self._host, msg)
         except Exception as ex:  # pylint: disable=broad-except # noqa: BLE001
             _LOGGER.error("%s ## error connecting: %s", self._host, ex)
@@ -485,7 +478,7 @@ class SpaClient(EventMixin):
             except SpaMessageError as err:
                 _LOGGER.debug("%s ## %s", self._host, err)
                 continue
-            except (asyncio.TimeoutError, asyncio.IncompleteReadError):
+            except (TimeoutError, asyncio.IncompleteReadError):
                 if (
                     not (sent := self._last_message_sent)
                     or sent + wait_time < localnow()
