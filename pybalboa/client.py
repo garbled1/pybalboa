@@ -467,6 +467,11 @@ class SpaClient(EventMixin):
         self._reader = self._writer = None
         _LOGGER.debug("%s -- disconnected", self._host)
 
+    def _close_connection(self) -> None:
+        """Close the current connection so that `connected` turns False."""
+        if self._writer is not None and not self._writer.is_closing():
+            self._writer.close()
+
     async def _start_listener(self) -> None:
         """Start the listener."""
         timeout = 15
@@ -478,7 +483,7 @@ class SpaClient(EventMixin):
             except SpaMessageError as err:
                 _LOGGER.debug("%s ## %s", self._host, err)
                 continue
-            except (TimeoutError, asyncio.IncompleteReadError):
+            except TimeoutError:
                 if (
                     not (sent := self._last_message_sent)
                     or sent + wait_time < localnow()
@@ -486,10 +491,21 @@ class SpaClient(EventMixin):
                     self.emit(EVENT_UPDATE)
                     await self.send_device_present()
                 continue
+            except asyncio.IncompleteReadError:
+                # The spa closed the connection (EOF). The stream stays at EOF,
+                # so every further read fails immediately without yielding to
+                # the event loop -- retrying here would spin forever and block
+                # the host application. Drop the connection instead and let
+                # the connection monitor reconnect.
+                _LOGGER.debug("%s -- connection closed by spa", self._host)
+                break
             except Exception as ex:  # pylint: disable=broad-except # noqa: BLE001
+                # e.g. ConnectionResetError: the connection is unusable, and
+                # retrying would fail immediately again (see above).
                 _LOGGER.error("%s ## %s", self._host, ex)
-                continue
+                break
             self._process_message(data)
+        self._close_connection()
         self.emit(EVENT_UPDATE)
         _LOGGER.debug("%s -- stopped listening", self._host)
 
