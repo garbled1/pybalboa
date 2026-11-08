@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import time, timedelta
 from unittest.mock import patch
 
@@ -318,3 +319,78 @@ async def test_client_errors(
     async with SpaClient(HOST, bfbp20s.port) as spa:
         with pytest.raises(error, match=error_message):
             await getattr(spa, method)(**(params or {}))
+
+
+@pytest.mark.asyncio
+async def test_require_first_frame_rejects_zombie(
+    bfbp20s_silent: SpaServer,
+) -> None:
+    """A TCP handshake that never produces a spa frame is treated as failure."""
+    spa = SpaClient(
+        HOST,
+        bfbp20s_silent.port,
+        require_first_frame=True,
+        first_frame_timeout=1,
+    )
+    try:
+        assert await spa.connect() is False
+        assert spa.connected is False
+    finally:
+        await spa.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_require_first_frame_accepts_normal_spa(bfbp20s: SpaServer) -> None:
+    """A responsive spa still connects successfully with the guard enabled."""
+    async with SpaClient(
+        HOST,
+        bfbp20s.port,
+        require_first_frame=True,
+        first_frame_timeout=5,
+    ) as spa:
+        assert spa.connected
+        assert await spa.async_configuration_loaded()
+        assert spa.model == "BFBP20S"
+
+
+@pytest.mark.asyncio
+async def test_stale_teardown_closes_zombie_socket(
+    bfbp20s_silent_after: SpaServer,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Listener tears down the writer after ``max_stale_windows`` of silence."""
+    spa = SpaClient(
+        HOST,
+        bfbp20s_silent_after.port,
+        stale_after=1,
+        max_stale_windows=2,
+    )
+    try:
+        assert await spa.connect()
+        # Server stops responding ~1s after connect; after 2 silent windows
+        # of 1s each, the listener should close the writer. The connection
+        # monitor will reconnect quickly on localhost so we watch the log
+        # for the tear-down warning rather than a transient `connected` flip.
+        with caplog.at_level("WARNING", logger="pybalboa.client"):
+            for _ in range(60):  # ~6s ceiling — enough for 1s + 2×1s + margin
+                await asyncio.sleep(0.1)
+                if any(
+                    "tearing down zombie socket" in r.message for r in caplog.records
+                ):
+                    break
+            else:  # pragma: no cover — only fires if tear-down never happened
+                pytest.fail("stale_after tear-down never fired")
+    finally:
+        await spa.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_default_kwargs_preserve_legacy_behavior(bfbp20s: SpaServer) -> None:
+    """Constructing SpaClient without new kwargs."""
+    spa = SpaClient(HOST, bfbp20s.port)
+    assert spa._stale_after is None
+    assert spa._require_first_frame is False
+    # Backoff defaults reproduce the historical `min(1 * 2**attempt + jitter, 60)`.
+    assert spa._backoff_initial == 1.0
+    assert spa._backoff_factor == 2.0
+    assert spa._backoff_max == 60.0

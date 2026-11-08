@@ -75,20 +75,42 @@ async def bp6013g1(
         yield server
 
 
+@pytest.fixture()
+async def bfbp20s_silent(
+    spa_server: Callable[..., AsyncGenerator[SpaServer, None]],
+    unused_tcp_port: int,
+) -> AsyncGenerator[SpaServer, None]:
+    """Zombie server: accepts TCP but never sends a byte."""
+    async for server in spa_server(unused_tcp_port, "bfbp20s", silent_from_start=True):
+        yield server
+
+
+@pytest.fixture()
+async def bfbp20s_silent_after(
+    spa_server: Callable[..., AsyncGenerator[SpaServer, None]],
+    unused_tcp_port: int,
+) -> AsyncGenerator[SpaServer, None]:
+    """Server that responds for 1 second, then goes silent without closing."""
+    async for server in spa_server(unused_tcp_port, "bfbp20s", silent_after=1.0):
+        yield server
+
+
 @pytest.fixture(name="spa_server")
-def spa_server_factory() -> Callable[[int, str], AsyncGenerator[SpaServer, None]]:
+def spa_server_factory() -> Callable[..., AsyncGenerator[SpaServer, None]]:
     """
     Provides a factory that creates and starts a SpaServer for a given fixture name and port.
 
     Returns:
-        A factory function accepting (unused_tcp_port, fixture_name) and yielding a started SpaServer instance.
+        A factory function accepting (unused_tcp_port, fixture_name, **kwargs)
+        and yielding a started SpaServer instance. Extra kwargs are forwarded
+        to SpaServer (e.g. ``silent_from_start=True`` or ``silent_after=0.5``).
     """
 
     async def _factory(
-        unused_tcp_port: int, fixture_name: str
+        unused_tcp_port: int, fixture_name: str, **kwargs: Any
     ) -> AsyncGenerator[SpaServer, None]:
         messages = load_spa_from_json(fixture_name)
-        spa = SpaServer(unused_tcp_port, messages)
+        spa = SpaServer(unused_tcp_port, messages, **kwargs)
         task = asyncio.create_task(spa.start_server())
         await asyncio.sleep(0.01)
 
@@ -105,11 +127,31 @@ def spa_server_factory() -> Callable[[int, str], AsyncGenerator[SpaServer, None]
 class SpaServer:
     """Test server that simulates a spa device."""
 
-    def __init__(self, port: int, messages: dict[str, str]) -> None:
-        """Initialize the spa server."""
+    def __init__(
+        self,
+        port: int,
+        messages: dict[str, str],
+        *,
+        silent_from_start: bool = False,
+        silent_after: float | None = None,
+    ) -> None:
+        """Initialize the spa server.
+
+        silent_from_start:
+            Accept the TCP connection but never send a byte. Simulates the
+            BWA 50350 pathology where a zombie handshake is treated as
+            success.
+        silent_after:
+            Behave normally until ``silent_after`` seconds after the
+            connection is accepted, then stop responding to anything.
+            Simulates the 50350's "streams for ~30s then goes silent
+            without closing the socket" pattern.
+        """
         self.port = port
         self.messages = messages
         self.received_messages: list[bytes] = []
+        self._silent_from_start = silent_from_start
+        self._silent_after = silent_after
 
     async def start_server(self) -> None:
         """Start the async TCP server."""
@@ -125,6 +167,15 @@ class SpaServer:
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
         """Handle incoming messages from the client."""
+        loop = asyncio.get_event_loop()
+        connected_at = loop.time()
+        if self._silent_from_start:
+            # Zombie mode: hold the socket open, never send a byte. Wait for
+            # the client to close its half (or the test to tear us down) so
+            # the coroutine terminates cleanly.
+            with contextlib.suppress(Exception):
+                await reader.read()
+            return
         timeout = 1
         while True:
             try:
@@ -133,6 +184,13 @@ class SpaServer:
                 message_type = MessageType(data[3])
             except TimeoutError:
                 message_type = MessageType.STATUS_UPDATE
+
+            if (
+                self._silent_after is not None
+                and (loop.time() - connected_at) >= self._silent_after
+            ):
+                # Post-silence: consume input but never reply.
+                continue
 
             message = None
             if message_type == MessageType.STATUS_UPDATE:
