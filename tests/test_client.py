@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import json
 from datetime import time, timedelta
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from pybalboa import SpaClient
 from pybalboa.enums import (
+    AccessibilityType,
     HeatMode,
     LowHighRange,
     MessageType,
@@ -318,3 +321,29 @@ async def test_client_errors(
     async with SpaClient(HOST, bfbp20s.port) as spa:
         with pytest.raises(error, match=error_message):
             await getattr(spa, method)(**(params or {}))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("flags", "expected"),
+    [
+        (0x00, AccessibilityType.ALL),
+        (0x10, AccessibilityType.PUMP_LIGHT),
+        (0x20, AccessibilityType.NONE),
+        (0x30, AccessibilityType.NONE),
+        # temperature unit, 24-hour clock and filter cycle bits don't count
+        (0x0F, AccessibilityType.ALL),
+        (0x1F, AccessibilityType.PUMP_LIGHT),
+        (0x2F, AccessibilityType.NONE),
+    ],
+)
+async def test_accessibility_type(flags: int, expected: AccessibilityType) -> None:
+    """Test the panel lock (accessibility type) is decoded from status byte 9."""
+    fixture = Path(__file__).parent / "fixtures" / "bfbp20s.json"
+    status = bytearray(
+        bytes.fromhex(json.loads(fixture.read_text())["status_update"])[4:-1]
+    )
+    status[9] = flags
+    spa = SpaClient(HOST)
+    spa._parse_status_update(bytes(status))
+    assert spa._accessibility_type == expected

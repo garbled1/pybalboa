@@ -711,7 +711,7 @@ class SpaClient(EventMixin):
         self._filter_cycle_1_running = flag & 0x04 != 0
         self._filter_cycle_2_running = flag & 0x08 != 0
         self._accessibility_type = ACCESSIBILITY_TYPE_MAP.get(
-            flag & 0x48, AccessibilityType.ALL
+            flag & 0x30, AccessibilityType.ALL
         )
         self._temperature_range = ((flag := data[10]) >> 2) & 0x01
         self._update_control_states(
