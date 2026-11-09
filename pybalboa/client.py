@@ -9,6 +9,7 @@ from datetime import datetime, time, timedelta
 from random import uniform
 from typing import Any, Self, TypeVar, cast
 
+from .chromazone import Chromazone
 from .control import EVENT_UPDATE, EventMixin, FaultLog, HeatModeSpaControl, SpaControl
 from .discovery import async_discover
 from .enums import (
@@ -124,6 +125,8 @@ class SpaClient(EventMixin):
 
         # status update
         self._accessibility_type: AccessibilityType = AccessibilityType.NONE
+        self._chromazone: Chromazone | None = None
+        self._chromazone_rerequested = False
         self._filter_cycle_1_running: bool = False
         self._filter_cycle_2_running: bool = False
         self._heat_state: HeatState = HeatState.OFF
@@ -375,6 +378,11 @@ class SpaClient(EventMixin):
         ]
 
     @property
+    def chromazone(self) -> Chromazone | None:
+        """Return the Chromazone lighting, or None if the spa hasn't reported any."""
+        return self._chromazone
+
+    @property
     def configuration_loaded(self) -> bool:
         """Return `True` if the configuration is loaded."""
         return self._configuration_loaded.is_set()
@@ -438,6 +446,8 @@ class SpaClient(EventMixin):
             _LOGGER.debug("%s -- connected", self._host)
             self._listener = asyncio.ensure_future(self._start_listener())
             asyncio.ensure_future(self.request_all_configuration(True))
+            self._chromazone_rerequested = False
+            asyncio.ensure_future(self.request_chromazone_configuration())
             await cancel_task(self._connection_monitor)
 
             async def _monitor() -> None:
@@ -513,6 +523,33 @@ class SpaClient(EventMixin):
             self._parse_setup_parameters(data)
         elif message_type == MessageType.SYSTEM_INFORMATION:
             self._parse_system_information(data)
+        elif message_type in (
+            MessageType.CHROMAZONE_STATUS,
+            MessageType.CHROMAZONE_CONFIGURATION,
+            MessageType.CHROMAZONE_PALETTE,
+        ):
+            self._process_chromazone(message_type, data)
+
+    def _process_chromazone(self, message_type: MessageType, data: bytes) -> None:
+        """Process a Chromazone message; Chromazone exists once one arrives."""
+        if (chromazone := self._chromazone) is None:
+            chromazone = self._chromazone = Chromazone(self._host)
+            _LOGGER.debug("%s -- Chromazone lighting detected", self._host)
+        if message_type == MessageType.CHROMAZONE_STATUS:
+            changed = chromazone.update_status(data)
+            if (
+                chromazone.raw_configuration is None
+                and not self._chromazone_rerequested
+            ):
+                # the request at connect may have been missed - ask once more
+                self._chromazone_rerequested = True
+                asyncio.ensure_future(self.request_chromazone_configuration())
+        elif message_type == MessageType.CHROMAZONE_CONFIGURATION:
+            changed = chromazone.update_configuration(data)
+        else:
+            changed = chromazone.update_palette(data)
+        if changed:
+            self.emit(EVENT_UPDATE)
 
     def _parse_device_configuration(self, data: bytes) -> None:
         """Parse a device configuration message.
@@ -562,6 +599,11 @@ class SpaClient(EventMixin):
             _add_controls(ControlType.AUX, auxs)
             _add_controls(ControlType.MISTER, misters)
 
+            _LOGGER.debug(
+                "%s -- device configuration byte 4 bit 7 (possible Chromazone flag): %d",
+                self._host,
+                data[4] >> 7,
+            )
             self._device_configuration_loaded = True
             self._check_configuration_loaded()
 
@@ -803,6 +845,17 @@ class SpaClient(EventMixin):
             await self.request_filter_cycle()
         if wait and not await self.async_configuration_loaded(3) and self.connected:
             await self.request_all_configuration(wait)
+
+    async def request_chromazone_configuration(self) -> None:
+        """Ask for the Chromazone configuration (0x33) and palette (0x34).
+
+        Spas without Chromazone don't answer; spas with it reply to these the
+        same way they reply to the topside panel.
+        """
+        for part in (0x00, 0x01):
+            await self.send_message(
+                MessageType.CHROMAZONE_COMMAND, 0x0E, 0x00, part, 0, 0, 0, 0, 0
+            )
 
     async def request_device_configuration(self) -> None:
         """Request the device configuration."""

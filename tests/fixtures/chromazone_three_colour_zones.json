@@ -1,0 +1,13 @@
+{
+  "source": "ccutrer/balboa_worldwide_app#31 rec3.txt (digwa-ing): three colour zones, 14-byte configuration",
+  "configuration": "13ffaf3310000000070300000000050100069c",
+  "palette": "1effaf3400ffffffff00000000ff00ff0000ffff00ff00ff6400ffff00c6",
+  "status_off": "18ffaf320100000000000000000000000000000000000006",
+  "status_all_white": "18ffaf3201010064ffffff010064ffffff010064ffffffb2",
+  "status_a_red_b_blue_c_green": "18ffaf3201020064ff00000300640000ff04006400ff0015",
+  "status_all_color_wheel": "18ffaf32011002648c39001002648c39001002648c390053",
+  "status_a_party_b_yellow": "18ffaf3201110164000000080064ffff00000000000000b4",
+  "status_all_lounge": "18ffaf320113016400c7c213016400c7c213016400c7c267",
+  "status_ab_custom_color": "18ffaf3201090064d9746a090064d9746a00000000000028",
+  "status_c_only_green": "18ffaf320100000000000000000000000004006400ff0078"
+}

@@ -24,6 +24,10 @@ class MessageType(IntEnum):
     SET_TEMPERATURE_UNIT = 0x27
     FAULT_LOG = 0x28
     DEVICE_CONFIGURATION = 0x2E
+    CHROMAZONE_COMMAND = 0x31
+    CHROMAZONE_STATUS = 0x32
+    CHROMAZONE_CONFIGURATION = 0x33
+    CHROMAZONE_PALETTE = 0x34
     SET_WIFI = 0x92
     MODULE_IDENTIFICATION = 0x94
 
@@ -71,6 +75,14 @@ class AccessibilityType(IntEnum):
     PUMP_LIGHT = 0
     NONE = 1
     ALL = 2
+
+
+class ChromazoneEffect(IntEnum):
+    """Chromazone light show (zone mode 0x10 and up)."""
+
+    COLOR_WHEEL = 0x10
+    PARTY = 0x11
+    LOUNGE = 0x13  # "Relax" / "Calm" on some panels
 
 
 class HeatState(IntEnum):
