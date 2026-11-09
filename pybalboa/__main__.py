@@ -106,6 +106,12 @@ async def connect_and_listen(
             print(f"Filter cycle 2 running: {spa.filter_cycle_2_running}")
             print()
 
+            for _ in range(30):  # Chromazone status arrives about once a second
+                if (cz := spa.chromazone) and cz.raw_configuration and cz.raw_palette:
+                    break
+                await asyncio.sleep(0.1)
+            print_chromazone(spa)
+
             await test_controls(spa)
     except SpaConnectionError:
         print(f"Failed to connect to spa at {host}")
@@ -116,6 +122,30 @@ async def connect_and_listen(
         )
         print("https://github.com/garbled1/pybalboa/issues/")
         print()
+
+
+def print_chromazone(spa: SpaClient) -> None:
+    """Print Chromazone lighting, if the spa has it."""
+    print("Chromazone lighting")
+    print("-------------------")
+    if (chromazone := spa.chromazone) is None:
+        print("Not detected")
+        print()
+        return
+    raw = chromazone.raw_configuration
+    print(f"Configuration (0x33): {raw.hex(' ') if raw else 'not received'}")
+    palette = chromazone.palette
+    print(
+        "Palette (0x34): "
+        + (
+            " ".join("#{:02x}{:02x}{:02x}".format(*c) for c in palette)
+            if palette
+            else "not received"
+        )
+    )
+    for zone in chromazone.zones.values():
+        print(zone.describe())
+    print()
 
 
 async def test_controls(spa: SpaClient) -> None:

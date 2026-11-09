@@ -75,6 +75,30 @@ async def bp6013g1(
         yield server
 
 
+@pytest.fixture()
+async def mqbp20ux(
+    spa_server: Callable[[int, str], AsyncGenerator[SpaServer, None]],
+    unused_tcp_port: int,
+) -> AsyncGenerator[SpaServer, None]:
+    """Mock a MQBP20UX spa with Chromazone lighting (zone A colour, B white, C status)."""
+    async for server in spa_server(unused_tcp_port, "mqbp20ux"):
+        yield server
+
+
+@pytest.fixture()
+async def mqbp20ux_status_pro(
+    spa_server: Callable[[int, str], AsyncGenerator[SpaServer, None]],
+    unused_tcp_port: int,
+) -> AsyncGenerator[SpaServer, None]:
+    """Mock a MQBP20UX spa with Chromazone (garbled1/pybalboa#26).
+
+    Zones A and B are off and zone C is a status indicator; it never sent a
+    configuration or palette, so this server doesn't answer those requests.
+    """
+    async for server in spa_server(unused_tcp_port, "mqbp20ux_status_pro"):
+        yield server
+
+
 @pytest.fixture(name="spa_server")
 def spa_server_factory() -> Callable[[int, str], AsyncGenerator[SpaServer, None]]:
     """
@@ -137,6 +161,12 @@ class SpaServer:
             message = None
             if message_type == MessageType.STATUS_UPDATE:
                 message = self.messages["status_update"]
+                if chromazone := self.messages.get("chromazone_status"):
+                    message += MESSAGE_DELIMETER_BYTE.hex() * 2 + chromazone
+            elif message_type == MessageType.CHROMAZONE_COMMAND:
+                if data[4] == 0x0E:  # configuration (00) or palette (01) request
+                    key = ("chromazone_configuration", "chromazone_palette")[data[6]]
+                    message = self.messages.get(key)
             elif message_type == MessageType.DEVICE_PRESENT:
                 message = self.messages["module_identification"]
             elif message_type == MessageType.REQUEST:
